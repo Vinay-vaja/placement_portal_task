@@ -1,0 +1,175 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================
+// ENUMS
+// ============================
+
+enum UserRole {
+  STUDENT
+  CENTRAL_TPO
+}
+
+enum StudentType {
+  REGULAR
+  D2D
+}
+
+enum VerificationStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+enum DriveStatus {
+  ACTIVE
+  CLOSED
+}
+
+enum ApplicationStatus {
+  APPLIED
+  SHORTLISTED
+  REJECTED
+  SELECTED
+}
+
+enum AllowedStudentType {
+  ALL
+  REGULAR
+  D2D
+}
+
+// ============================
+// MODELS
+// ============================
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  role         UserRole @default(STUDENT)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  student Student?
+
+  @@map("users")
+}
+
+model Student {
+  id     String @id @default(cuid())
+  userId String @unique
+
+  // Personal Information
+  fullName String
+  phone    String
+  dob      DateTime
+
+  // Student type determines academic requirements
+  studentType StudentType @default(REGULAR)
+
+  // 10th Standard Subject Marks
+  mathsMarks        Float?
+  scienceMarks      Float?
+  englishMarks      Float?
+  socialScienceMarks Float?
+  otherMarks        Float?
+
+  // 10th percentage is required for ALL students
+  tenthPercentage Float
+
+  // 12th percentage - required ONLY for REGULAR students, null for D2D
+  twelfthPercentage Float?
+
+  // D2D fields - required ONLY for D2D students
+  d2dCgpa    Float?
+  d2dCollege String?
+  d2dDetails String?
+
+  // Profile management
+  profileLocked      Boolean            @default(false)
+  verificationStatus VerificationStatus @default(PENDING)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  applications Application[]
+
+  @@map("students")
+}
+
+model Company {
+  id       String @id @default(cuid())
+  name     String
+  imageUrl String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  drives RecruitmentDrive[]
+
+  @@map("companies")
+}
+
+model RecruitmentDrive {
+  id        String @id @default(cuid())
+  companyId String
+
+  // Drive information
+  role        String
+  description String?
+  ctc         Float
+  location    String?
+
+  // Eligibility criteria (all nullable - only configured if required)
+  minTenthPercentage  Float?
+  minTwelfthPercentage Float?
+  minCgpa             Float?
+  minCpi              Float?
+  allowedStudentType  AllowedStudentType @default(ALL)
+  backlogsAllowed     Boolean            @default(false)
+
+  // Drive management
+  applicationDeadline DateTime?
+  status              DriveStatus @default(ACTIVE)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  company      Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  applications Application[]
+
+  @@map("recruitment_drives")
+}
+
+model Application {
+  id        String @id @default(cuid())
+  studentId String
+  driveId   String
+
+  status    ApplicationStatus @default(APPLIED)
+  appliedAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+
+  // Relations
+  student Student          @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  drive   RecruitmentDrive @relation(fields: [driveId], references: [id], onDelete: Cascade)
+
+  // A student can only apply once to a drive
+  @@unique([studentId, driveId])
+  @@map("applications")
+}

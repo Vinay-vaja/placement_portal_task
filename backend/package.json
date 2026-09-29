@@ -1,0 +1,39 @@
+{
+  "name": "mini-placement-portal-backend",
+  "version": "1.0.0",
+  "description": "Backend for Mini Placement Portal - College Placement Management System",
+  "main": "src/server.js",
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch src/server.js",
+    "start": "node src/server.js",
+    "prisma:generate": "node_modules/.bin/prisma generate",
+    "prisma:migrate": "node_modules/.bin/prisma migrate dev",
+    "prisma:seed": "node prisma/seed.js",
+    "prisma:studio": "node_modules/.bin/prisma studio",
+    "test:api": "node scripts/test_suite.js"
+  },
+  "keywords": [
+    "placement",
+    "portal",
+    "backend",
+    "express",
+    "prisma"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@prisma/client": "^5.22.0",
+    "bcrypt": "^6.0.0",
+    "cloudinary": "^2.11.0",
+    "cors": "^2.8.6",
+    "dotenv": "^18.0.4",
+    "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.3",
+    "multer": "^2.4.0",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "prisma": "^5.22.0"
+  }
+}
