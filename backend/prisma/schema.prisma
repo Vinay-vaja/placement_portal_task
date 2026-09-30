@@ -108,8 +108,8 @@ model Student {
   studentType StudentType @default(REGULAR)
 
   // ===============================
-  // 10th Standard Subject Marks (out of 100)
-  // Maths, English, Social Science, Science, Computer/P.T., Sanskrit, Gujarati
+  // 10th Standard Subject Marks (out of 100 each, Total 600)
+  // Maths, English, Social Science, Science, Computer/P.T., Sanskrit
   // ===============================
   mathsMarks         Float?
   scienceMarks       Float?
@@ -117,7 +117,6 @@ model Student {
   socialScienceMarks Float?
   computerPtMarks    Float?
   sanskritMarks       Float?
-  gujaratiMarks      Float?
 
   // 10th percentage (auto-calculated from subject marks on profile submit)
   tenthPercentage Float @default(0)

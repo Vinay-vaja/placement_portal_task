@@ -83,14 +83,13 @@ export const completeProfileSchema = z.object({
     })
     .default("REGULAR"),
 
-  // 10th subject marks (all required for profile submission)
+  // 10th subject marks (6 subjects, all required for profile submission)
   mathsMarks: z.number().min(0).max(100, "Marks cannot exceed 100"),
   scienceMarks: z.number().min(0).max(100, "Marks cannot exceed 100"),
   englishMarks: z.number().min(0).max(100, "Marks cannot exceed 100"),
   socialScienceMarks: z.number().min(0).max(100, "Marks cannot exceed 100"),
   computerPtMarks: z.number().min(0).max(100, "Marks cannot exceed 100"),
   sanskritMarks: z.number().min(0).max(100, "Marks cannot exceed 100"),
-  gujaratiMarks: z.number().min(0).max(100, "Marks cannot exceed 100"),
 
   // 12th subject marks — required for REGULAR, optional for D2D
   twelfthEnglishMarks: z.number().min(0).max(100).optional().nullable(),
