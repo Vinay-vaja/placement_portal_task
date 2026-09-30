@@ -23,8 +23,9 @@ export interface RecruitmentDrive {
   ctc?: number;
   ctcMin?: number;
   ctcMax?: number;
-  location: string;
-  deadline: string;
+  location?: string;
+  deadline?: string;
+  applicationDeadline?: string;
   description?: string;
   
   // Eligibility Criteria
@@ -58,5 +59,6 @@ export interface Application {
   resumeUrl?: string;
   status: "APPLIED" | "SHORTLISTED" | "INTERVIEWED" | "OFFERED" | "REJECTED" | "SELECTED";
   isPresent?: boolean | null;
+  appliedAt?: string;
   createdAt: string;
 }

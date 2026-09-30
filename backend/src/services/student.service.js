@@ -455,7 +455,7 @@ export const getAllStudents = async (filters = {}, pagination = {}) => {
 /**
  * Update student verification status (TPO only)
  */
-export const verifyStudent = async (studentId, verificationStatus) => {
+export const verifyStudent = async (studentId, verificationStatus, rejectionReason) => {
   const student = await prisma.student.findUnique({ where: { id: studentId } });
 
   if (!student) {
@@ -464,9 +464,19 @@ export const verifyStudent = async (studentId, verificationStatus) => {
     throw error;
   }
 
+  const updateData = { verificationStatus };
+  if (verificationStatus === "REJECTED" && rejectionReason) {
+    updateData.dismissalReason = rejectionReason;
+  } else if (verificationStatus === "VERIFIED" || verificationStatus === "PENDING") {
+    // If was previously marked with a rejection reason, clear it
+    if (student.dismissalReason && student.verificationStatus === "REJECTED") {
+      updateData.dismissalReason = null;
+    }
+  }
+
   const updatedStudent = await prisma.student.update({
     where: { id: studentId },
-    data: { verificationStatus },
+    data: updateData,
     select: safeStudentSelect,
   });
 

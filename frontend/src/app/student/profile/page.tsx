@@ -168,6 +168,37 @@ export default function StudentProfilePage() {
     };
   };
 
+  const calculateTwelfthTotal = () => {
+    if (formData.studentType !== "REGULAR") {
+      return {
+        total: 0,
+        percentage: "0.00",
+        filledCount: 0,
+      };
+    }
+    const subjects = [
+      formData.twelfthEnglishMarks,
+      formData.twelfthPhysicsMarks,
+      formData.twelfthMathsMarks,
+      formData.twelfthChemistryMarks,
+      formData.twelfthComputerMarks,
+    ];
+    let total = 0;
+    let filled = 0;
+    for (const s of subjects) {
+      const val = parseFloat(s);
+      if (!isNaN(val)) {
+        total += val;
+        filled++;
+      }
+    }
+    return {
+      total,
+      percentage: filled > 0 ? ((total / (filled * 100)) * 100).toFixed(2) : "0.00",
+      filledCount: filled,
+    };
+  };
+
   const handleSubmitProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -275,6 +306,7 @@ export default function StudentProfilePage() {
 
   const isLocked = Boolean(profile?.profileLocked);
   const tenthSummary = calculateTenthTotal();
+  const twelfthSummary = calculateTwelfthTotal();
 
   return (
     <div className="space-y-8 max-w-4xl mx-auto py-4 px-2 sm:px-4">
@@ -300,15 +332,32 @@ export default function StudentProfilePage() {
           </p>
         </div>
 
-        {/* Calculated CPI & 10th Percentage Pill */}
-        <div className="flex items-center gap-3">
-          <div className="rounded-2xl bg-[#F5F5F7] p-3 text-center min-w-[90px] border border-black/[0.04]">
+        {/* Calculated CPI, 10th & 12th / D2D Pills */}
+        <div className="flex flex-wrap items-center gap-2.5">
+          <div className="rounded-2xl bg-[#F5F5F7] p-2.5 sm:p-3 text-center min-w-[80px] sm:min-w-[88px] border border-black/[0.04]">
             <span className="text-[10px] font-medium uppercase tracking-wider text-[#86868B] block">10th %</span>
-            <span className="text-lg font-semibold text-[#1D1D1F]">{tenthSummary.percentage}%</span>
+            <span className="text-base sm:text-lg font-semibold text-[#1D1D1F]">
+              {isLocked && profile?.tenthPercentage ? `${profile.tenthPercentage}%` : `${tenthSummary.percentage}%`}
+            </span>
           </div>
-          <div className="rounded-2xl bg-[#0071E3]/5 p-3 text-center min-w-[90px] border border-[#0071E3]/15">
+          {formData.studentType === "REGULAR" ? (
+            <div className="rounded-2xl bg-purple-50/70 p-2.5 sm:p-3 text-center min-w-[80px] sm:min-w-[88px] border border-purple-200">
+              <span className="text-[10px] font-medium uppercase tracking-wider text-purple-700 block">12th %</span>
+              <span className="text-base sm:text-lg font-semibold text-purple-900">
+                {isLocked && profile?.twelfthPercentage ? `${profile.twelfthPercentage}%` : `${twelfthSummary.percentage}%`}
+              </span>
+            </div>
+          ) : (
+            <div className="rounded-2xl bg-purple-50/70 p-2.5 sm:p-3 text-center min-w-[80px] sm:min-w-[88px] border border-purple-200">
+              <span className="text-[10px] font-medium uppercase tracking-wider text-purple-700 block">D2D CGPA</span>
+              <span className="text-base sm:text-lg font-semibold text-purple-900">
+                {formData.d2dCgpa || (profile?.d2dCgpa ? String(profile.d2dCgpa) : "—")}
+              </span>
+            </div>
+          )}
+          <div className="rounded-2xl bg-[#0071E3]/5 p-2.5 sm:p-3 text-center min-w-[80px] sm:min-w-[88px] border border-[#0071E3]/15">
             <span className="text-[10px] font-medium uppercase tracking-wider text-[#0071E3] block">CPI</span>
-            <span className="text-lg font-semibold text-[#0071E3]">{calculateClientCpi()}</span>
+            <span className="text-base sm:text-lg font-semibold text-[#0071E3]">{calculateClientCpi()}</span>
           </div>
         </div>
       </div>
@@ -519,12 +568,24 @@ export default function StudentProfilePage() {
         {formData.studentType === "REGULAR" ? (
           <Card className="rounded-3xl border border-black/[0.08] shadow-[0_2px_16px_rgba(0,0,0,0.03)] bg-white">
             <CardHeader className="border-b border-black/[0.06] pb-4">
-              <CardTitle className="text-base font-semibold text-[#1D1D1F] flex items-center gap-2">
-                <GraduationCap className="h-4 w-4 text-[#0071E3]" /> 12th Standard Marks (Science Stream)
-              </CardTitle>
-              <CardDescription className="text-xs text-[#86868B]">
-                Required for Regular students. Enter subject marks out of 100.
-              </CardDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-base font-semibold text-[#1D1D1F] flex items-center gap-2">
+                    <GraduationCap className="h-4 w-4 text-[#0071E3]" /> 12th Standard Marks (Science Stream)
+                  </CardTitle>
+                  <CardDescription className="text-xs text-[#86868B]">
+                    Required for Regular students. 5 Subjects: English, Physics, Maths, Chemistry, Computer (Total: 500)
+                  </CardDescription>
+                </div>
+                <div className="text-right">
+                  <span className="text-xs font-semibold text-[#1D1D1F]">
+                    Total: {twelfthSummary.total} / 500
+                  </span>
+                  <span className="block text-[11px] text-purple-700 font-semibold">
+                    {isLocked && profile?.twelfthPercentage ? `${profile.twelfthPercentage}%` : `${twelfthSummary.percentage}%`}
+                  </span>
+                </div>
+              </div>
             </CardHeader>
             <CardContent className="p-6 grid grid-cols-2 sm:grid-cols-3 gap-4 text-xs">
               <div className="space-y-1.5">

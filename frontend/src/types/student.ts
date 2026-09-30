@@ -37,15 +37,28 @@ export interface StudentProfile {
   studentType: StudentType;
 
   // 10th Marks
+  mathsMarks?: number | null;
+  scienceMarks?: number | null;
+  englishMarks?: number | null;
+  socialScienceMarks?: number | null;
+  sanskritMarks?: number | null;
+  gujaratiMarks?: number | null;
   tenthMarks?: TenthMarks;
   tenthPercentage: number;
 
   // 12th Marks (Regular only)
+  twelfthEnglishMarks?: number | null;
+  twelfthPhysicsMarks?: number | null;
+  twelfthMathsMarks?: number | null;
+  twelfthChemistryMarks?: number | null;
+  twelfthComputerMarks?: number | null;
   twelfthMarks?: TwelfthMarks | null;
   twelfthPercentage?: number | null;
 
   // D2D Metrics
   d2dCgpa?: number | null;
+  d2dCollege?: string | null;
+  d2dDetails?: string | null;
   d2dAcpcRank?: number | null;
 
   // Academic computed metrics

@@ -82,7 +82,8 @@ export const updateStudent = async (req, res, next) => {
  */
 export const verifyStudent = async (req, res, next) => {
   try {
-    const { verificationStatus } = req.body;
+    const rawStatus = req.body.verificationStatus || req.body.status;
+    const verificationStatus = rawStatus ? String(rawStatus).toUpperCase().trim() : null;
 
     if (!["PENDING", "VERIFIED", "REJECTED"].includes(verificationStatus)) {
       return sendError(res, 400, "Invalid verification status. Must be PENDING, VERIFIED, or REJECTED");
@@ -90,7 +91,8 @@ export const verifyStudent = async (req, res, next) => {
 
     const student = await studentService.verifyStudent(
       req.params.id,
-      verificationStatus
+      verificationStatus,
+      req.body.rejectionReason
     );
     return sendSuccess(
       res,

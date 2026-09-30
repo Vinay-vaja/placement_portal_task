@@ -14,10 +14,11 @@ export const tpoService = {
 
   verifyStudent: async (
     studentId: string,
-    status: "VERIFIED" | "REJECTED",
+    status: "PENDING" | "VERIFIED" | "REJECTED",
     rejectionReason?: string
   ): Promise<ApiResponse<StudentProfile>> => {
     return apiClient.patch<ApiResponse<StudentProfile>>(`/tpo/students/${studentId}/verify`, {
+      verificationStatus: status,
       status,
       rejectionReason,
     });

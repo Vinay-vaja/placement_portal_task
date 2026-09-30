@@ -69,7 +69,7 @@ export default function TPOStudentsPage() {
     fetchStudents();
   };
 
-  const handleVerify = async (studentId: string, verifyStatus: "VERIFIED" | "REJECTED") => {
+  const handleVerify = async (studentId: string, verifyStatus: "PENDING" | "VERIFIED" | "REJECTED") => {
     try {
       setIsProcessing(true);
       await tpoService.verifyStudent(
@@ -246,11 +246,26 @@ export default function TPOStudentsPage() {
           <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-white rounded-3xl shadow-2xl border border-black/[0.08] p-6 space-y-6">
             <div className="flex items-center justify-between border-b border-black/[0.06] pb-4">
               <div>
-                <h3 className="text-xl font-semibold tracking-tight text-[#1D1D1F]">
-                  {selectedStudent.fullName}
-                </h3>
-                <p className="text-xs text-[#86868B]">
-                  {selectedStudent.user?.email} • Branch: {selectedStudent.branch || "Not Set"}
+                <div className="flex items-center gap-2">
+                  <h3 className="text-xl font-semibold tracking-tight text-[#1D1D1F]">
+                    {selectedStudent.fullName}
+                  </h3>
+                  {selectedStudent.verificationStatus === "VERIFIED" ? (
+                    <Badge className="bg-[#34C759]/10 text-[#28A745] border border-[#34C759]/20 text-[10px] font-semibold">
+                      VERIFIED
+                    </Badge>
+                  ) : selectedStudent.verificationStatus === "REJECTED" ? (
+                    <Badge className="bg-red-50 text-red-600 border border-red-200 text-[10px] font-semibold">
+                      REJECTED
+                    </Badge>
+                  ) : (
+                    <Badge className="bg-amber-50 text-amber-700 border border-amber-200 text-[10px] font-semibold">
+                      PENDING
+                    </Badge>
+                  )}
+                </div>
+                <p className="text-xs text-[#86868B] mt-1">
+                  {selectedStudent.user?.email} • Branch: {selectedStudent.branch || "Not Set"} • Phone: {selectedStudent.phone || "N/A"}
                 </p>
               </div>
               <button
@@ -264,16 +279,22 @@ export default function TPOStudentsPage() {
             {/* Academic Marks Overview */}
             <div className="space-y-4">
               <h4 className="text-xs font-semibold text-[#86868B] uppercase tracking-wider">
-                Academic Performance
+                Academic Performance Overview
               </h4>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-[#F5F5F7]/80 p-4 rounded-2xl border border-black/[0.04]">
                 <div>
                   <p className="text-[10px] font-medium text-[#86868B]">10th Percentage</p>
-                  <p className="text-base font-semibold text-[#1D1D1F]">{selectedStudent.tenthPercentage}%</p>
+                  <p className="text-base font-semibold text-[#1D1D1F]">{selectedStudent.tenthPercentage ?? 0}%</p>
                 </div>
                 <div>
-                  <p className="text-[10px] font-medium text-[#86868B]">Student Type</p>
-                  <p className="text-base font-semibold text-[#1D1D1F]">{selectedStudent.studentType}</p>
+                  <p className="text-[10px] font-medium text-[#86868B]">
+                    {selectedStudent.studentType === "REGULAR" ? "12th Percentage" : "D2D CGPA"}
+                  </p>
+                  <p className="text-base font-semibold text-[#1D1D1F]">
+                    {selectedStudent.studentType === "REGULAR"
+                      ? (selectedStudent.twelfthPercentage ? `${selectedStudent.twelfthPercentage}%` : "—")
+                      : (selectedStudent.d2dCgpa ? `${selectedStudent.d2dCgpa}` : "—")}
+                  </p>
                 </div>
                 <div>
                   <p className="text-[10px] font-medium text-[#86868B]">Computed CPI</p>
@@ -291,36 +312,105 @@ export default function TPOStudentsPage() {
             </div>
 
             {/* 10th Marks Breakdown Details */}
-            {selectedStudent.tenthMarks && (
+            <div className="space-y-2">
+              <h4 className="text-xs font-semibold text-[#86868B] uppercase tracking-wider">
+                10th Standard Marks Breakdown (Total: 600)
+              </h4>
+              <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 bg-[#F5F5F7]/50 p-3 rounded-2xl border border-black/[0.04] text-center text-xs">
+                <div className="p-2 rounded-xl bg-white border border-black/[0.04]">
+                  <span className="block text-[10px] text-[#86868B]">Maths</span>
+                  <span className="font-semibold">{selectedStudent.mathsMarks ?? "—"}</span>
+                </div>
+                <div className="p-2 rounded-xl bg-white border border-black/[0.04]">
+                  <span className="block text-[10px] text-[#86868B]">Science</span>
+                  <span className="font-semibold">{selectedStudent.scienceMarks ?? "—"}</span>
+                </div>
+                <div className="p-2 rounded-xl bg-white border border-black/[0.04]">
+                  <span className="block text-[10px] text-[#86868B]">English</span>
+                  <span className="font-semibold">{selectedStudent.englishMarks ?? "—"}</span>
+                </div>
+                <div className="p-2 rounded-xl bg-white border border-black/[0.04]">
+                  <span className="block text-[10px] text-[#86868B]">Social Sci</span>
+                  <span className="font-semibold">{selectedStudent.socialScienceMarks ?? "—"}</span>
+                </div>
+                <div className="p-2 rounded-xl bg-white border border-black/[0.04]">
+                  <span className="block text-[10px] text-[#86868B]">Sanskrit</span>
+                  <span className="font-semibold">{selectedStudent.sanskritMarks ?? "—"}</span>
+                </div>
+                <div className="p-2 rounded-xl bg-white border border-black/[0.04]">
+                  <span className="block text-[10px] text-[#0071E3] font-medium">Gujarati</span>
+                  <span className="font-semibold text-[#0071E3]">{selectedStudent.gujaratiMarks ?? "—"}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* 12th Marks Breakdown (REGULAR) */}
+            {selectedStudent.studentType === "REGULAR" && (
               <div className="space-y-2">
                 <h4 className="text-xs font-semibold text-[#86868B] uppercase tracking-wider">
-                  10th Standard Marks (Total: 600)
+                  12th Standard Marks Breakdown (Science Stream)
                 </h4>
-                <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 bg-[#F5F5F7]/50 p-3 rounded-2xl border border-black/[0.04] text-center text-xs">
-                  <div className="p-2 rounded-xl bg-white border border-black/[0.04]">
-                    <span className="block text-[10px] text-[#86868B]">Maths</span>
-                    <span className="font-semibold">{selectedStudent.tenthMarks.maths}</span>
-                  </div>
-                  <div className="p-2 rounded-xl bg-white border border-black/[0.04]">
-                    <span className="block text-[10px] text-[#86868B]">Science</span>
-                    <span className="font-semibold">{selectedStudent.tenthMarks.science}</span>
-                  </div>
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 bg-[#F5F5F7]/50 p-3 rounded-2xl border border-black/[0.04] text-center text-xs">
                   <div className="p-2 rounded-xl bg-white border border-black/[0.04]">
                     <span className="block text-[10px] text-[#86868B]">English</span>
-                    <span className="font-semibold">{selectedStudent.tenthMarks.english}</span>
+                    <span className="font-semibold">{selectedStudent.twelfthEnglishMarks ?? "—"}</span>
                   </div>
                   <div className="p-2 rounded-xl bg-white border border-black/[0.04]">
-                    <span className="block text-[10px] text-[#86868B]">Social Sci</span>
-                    <span className="font-semibold">{selectedStudent.tenthMarks.socialScience}</span>
+                    <span className="block text-[10px] text-[#86868B]">Physics</span>
+                    <span className="font-semibold">{selectedStudent.twelfthPhysicsMarks ?? "—"}</span>
                   </div>
                   <div className="p-2 rounded-xl bg-white border border-black/[0.04]">
-                    <span className="block text-[10px] text-[#86868B]">Sanskrit</span>
-                    <span className="font-semibold">{selectedStudent.tenthMarks.sanskrit}</span>
+                    <span className="block text-[10px] text-[#86868B]">Mathematics</span>
+                    <span className="font-semibold">{selectedStudent.twelfthMathsMarks ?? "—"}</span>
                   </div>
                   <div className="p-2 rounded-xl bg-white border border-black/[0.04]">
-                    <span className="block text-[10px] text-[#0071E3] font-medium">Gujarati</span>
-                    <span className="font-semibold text-[#0071E3]">{selectedStudent.tenthMarks.gujarati}</span>
+                    <span className="block text-[10px] text-[#86868B]">Chemistry</span>
+                    <span className="font-semibold">{selectedStudent.twelfthChemistryMarks ?? "—"}</span>
                   </div>
+                  <div className="p-2 rounded-xl bg-white border border-black/[0.04]">
+                    <span className="block text-[10px] text-[#86868B]">Computer</span>
+                    <span className="font-semibold">{selectedStudent.twelfthComputerMarks ?? "—"}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* D2D Details (D2D) */}
+            {selectedStudent.studentType === "D2D" && (
+              <div className="space-y-2">
+                <h4 className="text-xs font-semibold text-[#86868B] uppercase tracking-wider">
+                  Diploma to Degree (D2D) Details
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 bg-[#F5F5F7]/50 p-3 rounded-2xl border border-black/[0.04] text-xs">
+                  <div className="p-2 rounded-xl bg-white border border-black/[0.04]">
+                    <span className="block text-[10px] text-[#86868B]">Diploma CGPA</span>
+                    <span className="font-semibold">{selectedStudent.d2dCgpa ?? "—"}</span>
+                  </div>
+                  <div className="p-2 rounded-xl bg-white border border-black/[0.04]">
+                    <span className="block text-[10px] text-[#86868B]">College</span>
+                    <span className="font-semibold">{selectedStudent.d2dCollege ?? "—"}</span>
+                  </div>
+                  <div className="p-2 rounded-xl bg-white border border-black/[0.04]">
+                    <span className="block text-[10px] text-[#86868B]">ACPC Merit Rank</span>
+                    <span className="font-semibold">{selectedStudent.d2dAcpcRank ?? "—"}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Semester SPIs */}
+            {selectedStudent.semesterSpis && selectedStudent.semesterSpis.length > 0 && (
+              <div className="space-y-2">
+                <h4 className="text-xs font-semibold text-[#86868B] uppercase tracking-wider">
+                  Engineering Semester SPIs
+                </h4>
+                <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 bg-[#F5F5F7]/50 p-3 rounded-2xl border border-black/[0.04] text-center text-xs">
+                  {selectedStudent.semesterSpis.map((spiRecord) => (
+                    <div key={spiRecord.semester} className="p-2 rounded-xl bg-white border border-black/[0.04]">
+                      <span className="block text-[10px] text-[#86868B]">Sem {spiRecord.semester}</span>
+                      <span className="font-semibold text-[#0071E3]">{Number(spiRecord.spi).toFixed(2)}</span>
+                    </div>
+                  ))}
                 </div>
               </div>
             )}
@@ -338,22 +428,30 @@ export default function TPOStudentsPage() {
                 className="w-full text-xs rounded-xl border border-black/[0.1] bg-[#F5F5F7]/80 p-3 focus:bg-white focus:border-[#0071E3] focus:outline-none transition-all"
               />
 
-              <div className="flex items-center justify-end gap-3 pt-2">
+              <div className="flex flex-wrap items-center justify-end gap-2.5 pt-2">
+                <Button
+                  variant="outline"
+                  onClick={() => handleVerify(selectedStudent.id, "PENDING")}
+                  disabled={isProcessing}
+                  className="gap-1.5 text-xs font-medium text-amber-700 border-amber-300 hover:bg-amber-50"
+                >
+                  <AlertCircle className="h-3.5 w-3.5" /> Mark as Pending
+                </Button>
                 <Button
                   variant="outline"
                   onClick={() => handleVerify(selectedStudent.id, "REJECTED")}
                   disabled={isProcessing}
-                  className="gap-2 text-xs font-medium text-[#FF3B30] border-black/[0.1] hover:bg-red-50"
+                  className="gap-1.5 text-xs font-medium text-[#FF3B30] border-red-300 hover:bg-red-50"
                 >
-                  <X className="h-4 w-4" /> Reject Profile
+                  <X className="h-3.5 w-3.5" /> Reject Profile
                 </Button>
                 <Button
                   variant="primary"
                   onClick={() => handleVerify(selectedStudent.id, "VERIFIED")}
                   disabled={isProcessing}
-                  className="gap-2 text-xs font-medium bg-[#34C759] hover:bg-[#28A745]"
+                  className="gap-1.5 text-xs font-medium bg-[#34C759] hover:bg-[#28A745] text-white"
                 >
-                  <Check className="h-4 w-4" /> Approve & Verify
+                  <Check className="h-3.5 w-3.5" /> Approve & Verify
                 </Button>
               </div>
             </div>
