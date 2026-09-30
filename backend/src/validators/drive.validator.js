@@ -3,7 +3,7 @@ import { z } from "zod";
 const BRANCHES = [
   "CE", "AIML", "IT", "EC", "EE", "CIVIL",
   "CHEMICAL", "MECHANICAL", "RUBBER", "PLASTIC",
-  "ENVIRONMENTAL", "IC",
+  "ENVIRONMENTAL", "IC", "ROBOTICS", "AUTOMOBILE",
 ];
 
 export const createDriveSchema = z.object({

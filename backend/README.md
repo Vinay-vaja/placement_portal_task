@@ -11,7 +11,7 @@ A complete, production-grade RESTful API backend for a college Mini Placement Po
   - Email & Password registration & login
   - Google OAuth 2.0 Sign-In (`POST /api/auth/google`) with automatic profile completion detection
 - **Multi-Step Profile Completion**:
-  - Branch selection (`CE`, `AIML`, `IT`, `EC`, `EE`, `CIVIL`, `CHEMICAL`, `MECHANICAL`, `RUBBER`, `PLASTIC`, `ENVIRONMENTAL`, `IC`)
+  - Branch selection (`CE`, `AIML`, `IT`, `EC`, `EE`, `CIVIL`, `CHEMICAL`, `MECHANICAL`, `RUBBER`, `PLASTIC`, `ENVIRONMENTAL`, `IC`, `ROBOTICS`, `AUTOMOBILE`)
   - **10th Standard Marks**: Subject-wise (Maths, Science, English, Social Science, Computer/P.T., Sanskrit) with auto-calculated percentage (Total: 600 marks)
   - **12th Standard Marks** (Regular students): English, Physics, Maths, Chemistry, Computer with auto-calculated percentage
   - **D2D (Diploma to Degree)**: CGPA and ACPC Rank

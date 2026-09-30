@@ -43,6 +43,8 @@ enum Branch {
   PLASTIC
   ENVIRONMENTAL
   IC
+  ROBOTICS
+  AUTOMOBILE
 }
 
 enum VerificationStatus {
