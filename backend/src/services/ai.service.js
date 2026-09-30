@@ -134,8 +134,10 @@ export const refactorAnnouncementWithGroq = async ({
   rawNotes,
   templatePreset = "general",
   customApiKey = null,
+  customModel = null,
 }) => {
-  const apiKey = customApiKey || process.env.GROQ_API_KEY || config.groqApiKey;
+  const apiKey = (customApiKey || process.env.GROQ_API_KEY || config.groqApiKey || "").trim();
+  const targetModel = (customModel || process.env.GROQ_MODEL || config.groqModel || "llama-3.3-70b-versatile").trim();
 
   if (!rawNotes || !rawNotes.trim()) {
     throw new Error("Raw announcement text is required for AI refactoring.");
@@ -146,7 +148,7 @@ export const refactorAnnouncementWithGroq = async ({
     const fallback = generateStructuredFallbackEmail(rawNotes, templatePreset);
     return {
       ...fallback,
-      modelUsed: "local-template-engine (Set GROQ_API_KEY for Llama 3.3)",
+      modelUsed: `local-template-engine (Set GROQ_API_KEY in .env to use ${targetModel})`,
     };
   }
 
@@ -188,10 +190,10 @@ Transform this into a fully designed, responsive HTML email with an attractive s
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey.trim()}`,
+        Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: "llama-3.3-70b-versatile",
+        model: targetModel,
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },

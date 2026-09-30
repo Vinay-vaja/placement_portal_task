@@ -58,6 +58,7 @@ export default function TPODashboardPage() {
   const [aiModelUsed, setAiModelUsed] = useState<string | null>(null);
   const [activePresetId, setActivePresetId] = useState<string | null>(null);
   const [customGroqKey, setCustomGroqKey] = useState("");
+  const [selectedGroqModel, setSelectedGroqModel] = useState("llama-3.3-70b-versatile");
   const [showKeyInput, setShowKeyInput] = useState(false);
   const [announcementModalTab, setAnnouncementModalTab] = useState<"compose" | "preview">("compose");
 
@@ -112,6 +113,7 @@ export default function TPODashboardPage() {
         rawNotes: rawAiNotes.trim(),
         templatePreset: activePresetId || "general",
         customApiKey: customGroqKey.trim() || undefined,
+        customModel: selectedGroqModel || undefined,
       });
 
       if (res.data) {
@@ -749,17 +751,46 @@ export default function TPODashboardPage() {
                 </div>
 
                 {showKeyInput && (
-                  <div className="space-y-1">
-                    <Input
-                      type="password"
-                      placeholder="Optional custom Groq API Key (gsk_...)"
-                      value={customGroqKey}
-                      onChange={(e) => setCustomGroqKey(e.target.value)}
-                      className="text-xs h-8"
-                    />
-                    <p className="text-[10px] text-[#86868B]">
-                      Leave blank to use the server default / deterministic high-fidelity design engine.
-                    </p>
+                  <div className="space-y-2.5 p-3 bg-white/70 rounded-xl border border-black/[0.06]">
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-medium text-[#1D1D1F]">
+                        Custom Groq API Key
+                      </label>
+                      <Input
+                        type="password"
+                        placeholder="gsk_... (Leave blank to use server environment variable)"
+                        value={customGroqKey}
+                        onChange={(e) => setCustomGroqKey(e.target.value)}
+                        className="text-xs h-8"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-medium text-[#1D1D1F]">
+                        Groq Model
+                      </label>
+                      <select
+                        value={selectedGroqModel}
+                        onChange={(e) => setSelectedGroqModel(e.target.value)}
+                        className="w-full h-8 rounded-lg border border-black/[0.1] bg-white px-2.5 text-xs text-[#1D1D1F] focus:border-[#0071E3] focus:outline-none"
+                      >
+                        <option value="llama-3.3-70b-versatile">
+                          llama-3.3-70b-versatile (Recommended / High Quality)
+                        </option>
+                        <option value="llama-3.1-8b-instant">
+                          llama-3.1-8b-instant (Fastest / Lightweight)
+                        </option>
+                        <option value="mixtral-8x7b-32768">
+                          mixtral-8x7b-32768 (MoE Architecture)
+                        </option>
+                        <option value="gemma2-9b-it">
+                          gemma2-9b-it (Google Gemma 2)
+                        </option>
+                      </select>
+                      <p className="text-[10px] text-[#86868B]">
+                        Configured in backend/.env via GROQ_API_KEY and GROQ_MODEL.
+                      </p>
+                    </div>
                   </div>
                 )}
 

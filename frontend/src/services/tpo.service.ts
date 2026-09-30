@@ -73,6 +73,7 @@ export const tpoService = {
     rawNotes: string;
     templatePreset?: string;
     customApiKey?: string;
+    customModel?: string;
   }): Promise<
     ApiResponse<{
       subject: string;

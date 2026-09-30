@@ -185,7 +185,7 @@ export const sendDriveNotification = async (req, res, next) => {
  */
 export const refactorAnnouncement = async (req, res, next) => {
   try {
-    const { rawNotes, templatePreset, customApiKey } = req.body;
+    const { rawNotes, templatePreset, customApiKey, customModel, model } = req.body;
     if (!rawNotes || !rawNotes.trim()) {
       return sendError(res, 400, "Notes text is required for AI refactoring");
     }
@@ -194,6 +194,7 @@ export const refactorAnnouncement = async (req, res, next) => {
       rawNotes,
       templatePreset,
       customApiKey,
+      customModel: customModel || model,
     });
 
     return sendSuccess(res, 200, "Announcement refactored successfully", result);
