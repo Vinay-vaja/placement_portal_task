@@ -1,4 +1,4 @@
-import Brevo from "@getbrevo/brevo";
+import * as Brevo from "@getbrevo/brevo";
 import { config } from "./env.js";
 
 let apiInstance = null;
