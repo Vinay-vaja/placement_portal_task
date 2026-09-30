@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Mail, ArrowRight, X } from "lucide-react";
+import { Mail, ArrowRight, X, Sparkles } from "lucide-react";
 
 declare global {
   interface Window {
@@ -13,7 +13,7 @@ declare global {
         id: {
           initialize: (config: any) => void;
           renderButton: (parent: HTMLElement, options: any) => void;
-          prompt: () => void;
+          prompt: (callback?: (notification: any) => void) => void;
         };
       };
     };
@@ -33,49 +33,83 @@ export function GoogleSignInButton({
   const [isLoading, setIsLoading] = useState(false);
   const [showDemoModal, setShowDemoModal] = useState(false);
   const [demoEmail, setDemoEmail] = useState("");
+  const [isGsiLoaded, setIsGsiLoaded] = useState(false);
+  const googleBtnContainerRef = useRef<HTMLDivElement>(null);
 
-  const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "828847997086-fn3jqe9tvmmp1ud4hj2vvr1p1g1mgned.apps.googleusercontent.com";
+  const clientId =
+    process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ||
+    "828847997086-fn3jqe9tvmmp1ud4hj2vvr1p1g1mgned.apps.googleusercontent.com";
 
-  useEffect(() => {
-    // Dynamically load Google Identity Services script
-    if (typeof window === "undefined") return;
-    if (document.getElementById("google-gsi-client")) return;
-
-    const script = document.createElement("script");
-    script.id = "google-gsi-client";
-    script.src = "https://accounts.google.com/gsi/client";
-    script.async = true;
-    script.defer = true;
-    document.body.appendChild(script);
-  }, []);
-
-  const handleOfficialGoogleSignIn = () => {
-    try {
-      if (window.google?.accounts?.id && clientId && !clientId.includes("xxxx")) {
-        window.google.accounts.id.initialize({
-          client_id: clientId,
-          callback: async (response: any) => {
-            if (response.credential) {
-              try {
-                setIsLoading(true);
-                await googleAuth(response.credential);
-              } catch (err: any) {
-                onError?.(err?.message || "Google authentication failed");
-              } finally {
-                setIsLoading(false);
-              }
-            }
-          },
-        });
-        window.google.accounts.id.prompt();
-      } else {
-        // Fallback to quick Google sign-in
-        setShowDemoModal(true);
+  // Handle credential returned by Google
+  const handleCredentialResponse = async (response: any) => {
+    if (response?.credential) {
+      try {
+        setIsLoading(true);
+        await googleAuth(response.credential);
+      } catch (err: any) {
+        onError?.(err?.message || "Google authentication failed");
+      } finally {
+        setIsLoading(false);
       }
-    } catch {
-      setShowDemoModal(true);
     }
   };
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const setupGoogle = () => {
+      if (typeof window === "undefined" || !window.google?.accounts?.id) return;
+      try {
+        window.google.accounts.id.initialize({
+          client_id: clientId,
+          callback: handleCredentialResponse,
+          auto_select: false,
+          cancel_on_tap_outside: true,
+        });
+
+        if (googleBtnContainerRef.current) {
+          googleBtnContainerRef.current.innerHTML = "";
+          window.google.accounts.id.renderButton(googleBtnContainerRef.current, {
+            theme: "outline",
+            size: "large",
+            shape: "pill",
+            width: 320,
+            text: "continue_with",
+            logo_alignment: "center",
+          });
+        }
+
+        if (isMounted) setIsGsiLoaded(true);
+      } catch (err) {
+        console.warn("Google GSI initialization notice:", err);
+      }
+    };
+
+    if (window.google?.accounts?.id) {
+      setupGoogle();
+    } else {
+      const existingScript = document.getElementById("google-gsi-client");
+      if (!existingScript) {
+        const script = document.createElement("script");
+        script.id = "google-gsi-client";
+        script.src = "https://accounts.google.com/gsi/client";
+        script.async = true;
+        script.defer = true;
+        script.onload = () => {
+          if (isMounted) setupGoogle();
+        };
+        document.body.appendChild(script);
+      } else {
+        existingScript.addEventListener("load", () => {
+          if (isMounted) setupGoogle();
+        });
+      }
+    }
+
+    return () => {
+      isMounted = false;
+    };
+  }, [clientId]);
 
   const handleInstantGoogleAuth = async (emailToUse: string) => {
     try {
@@ -94,18 +128,46 @@ export function GoogleSignInButton({
     }
   };
 
+  const handleButtonClick = () => {
+    // If the official button iframe is rendered inside, try triggering prompt or show modal
+    if (window.google?.accounts?.id) {
+      try {
+        window.google.accounts.id.prompt((notification: any) => {
+          if (
+            notification?.isNotDisplayed?.() ||
+            notification?.isSkippedMoment?.() ||
+            notification?.isDismissedMoment?.()
+          ) {
+            setShowDemoModal(true);
+          }
+        });
+        // Give 600ms: if FedCM doesn't pop or is blocked on localhost, show the modal
+        setTimeout(() => {
+          setShowDemoModal(true);
+        }, 600);
+      } catch {
+        setShowDemoModal(true);
+      }
+    } else {
+      setShowDemoModal(true);
+    }
+  };
+
   return (
-    <>
+    <div className="w-full space-y-2.5">
+      {/* Official Google GSI Rendered Button Container */}
+      <div className="flex justify-center w-full min-h-[42px] overflow-hidden">
+        <div ref={googleBtnContainerRef} className="w-full flex justify-center" />
+      </div>
+
+      {/* Fallback & Quick College Google Sign-In button */}
       <Button
         variant="outline"
         type="button"
         disabled={isLoading}
         isLoading={isLoading}
-        className="w-full h-11 rounded-full border border-black/[0.1] dark:border-white/[0.15] bg-white dark:bg-zinc-900 hover:bg-neutral-50 dark:hover:bg-zinc-800 text-neutral-800 dark:text-neutral-200 text-sm font-medium transition-all shadow-sm flex items-center justify-center gap-3 cursor-pointer"
-        onClick={() => {
-          // If Google Client is ready, give user the option or directly trigger
-          handleOfficialGoogleSignIn();
-        }}
+        className="w-full h-10 rounded-full border border-black/[0.1] bg-white hover:bg-neutral-50 text-neutral-800 text-xs font-medium transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer"
+        onClick={handleButtonClick}
       >
         <svg className="h-4 w-4" viewBox="0 0 24 24">
           <path
@@ -125,92 +187,93 @@ export function GoogleSignInButton({
             d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
           />
         </svg>
-        <span>{label}</span>
+        <span>One-Click College Google Sign-In</span>
       </Button>
 
       {/* Quick Google Account Selection Dialog */}
       {showDemoModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-          <div className="relative w-full max-w-sm rounded-3xl bg-white dark:bg-zinc-900 p-6 shadow-2xl border border-black/[0.08] dark:border-white/[0.1] space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in duration-150">
+          <div className="relative w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl border border-black/[0.08] space-y-4">
             <button
               onClick={() => setShowDemoModal(false)}
-              className="absolute right-4 top-4 rounded-full p-1 text-neutral-400 hover:text-neutral-700 dark:hover:text-white transition-colors"
+              className="absolute right-4 top-4 rounded-full p-1.5 text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100 transition-colors"
             >
               <X className="h-4 w-4" />
             </button>
 
             <div className="text-center space-y-1 pt-1">
-              <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-blue-50 text-[#0071E3] dark:bg-blue-950/40">
+              <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-2xl bg-blue-50 text-[#0071E3]">
                 <Mail className="h-5 w-5" />
               </div>
-              <h3 className="text-base font-semibold tracking-tight text-neutral-900 dark:text-white">
+              <h3 className="text-base font-semibold tracking-tight text-[#1D1D1F]">
                 Sign In with Google
               </h3>
-              <p className="text-xs text-neutral-500 dark:text-neutral-400">
-                Choose a quick student account or enter your college Google email
+              <p className="text-xs text-[#86868B]">
+                Choose a pre-configured student or enter your college Google email
               </p>
             </div>
 
-            <div className="space-y-2 pt-2">
+            <div className="space-y-2 pt-1">
               <button
                 type="button"
                 onClick={() => handleInstantGoogleAuth("student.patel@ldce.ac.in")}
-                className="w-full flex items-center justify-between p-3 rounded-2xl border border-neutral-200 dark:border-zinc-800 hover:border-[#0071E3] hover:bg-neutral-50 dark:hover:bg-zinc-800/60 transition-all text-left group"
+                className="w-full flex items-center justify-between p-3 rounded-2xl border border-black/[0.08] hover:border-[#0071E3] hover:bg-[#F5F5F7] transition-all text-left group"
               >
                 <div>
-                  <p className="text-xs font-semibold text-neutral-900 dark:text-white">
-                    Harshil Patel
+                  <p className="text-xs font-semibold text-[#1D1D1F]">
+                    Harshil Patel (Regular)
                   </p>
-                  <p className="text-[11px] text-neutral-500">student.patel@ldce.ac.in</p>
+                  <p className="text-[11px] text-[#86868B]">student.patel@ldce.ac.in</p>
                 </div>
-                <ArrowRight className="h-4 w-4 text-neutral-400 group-hover:text-[#0071E3] transition-colors" />
+                <ArrowRight className="h-4 w-4 text-[#86868B] group-hover:text-[#0071E3] transition-colors" />
               </button>
 
               <button
                 type="button"
                 onClick={() => handleInstantGoogleAuth("rahul.sharma@ldce.ac.in")}
-                className="w-full flex items-center justify-between p-3 rounded-2xl border border-neutral-200 dark:border-zinc-800 hover:border-[#0071E3] hover:bg-neutral-50 dark:hover:bg-zinc-800/60 transition-all text-left group"
+                className="w-full flex items-center justify-between p-3 rounded-2xl border border-black/[0.08] hover:border-[#0071E3] hover:bg-[#F5F5F7] transition-all text-left group"
               >
                 <div>
-                  <p className="text-xs font-semibold text-neutral-900 dark:text-white">
+                  <p className="text-xs font-semibold text-[#1D1D1F]">
                     Rahul Sharma (D2D)
                   </p>
-                  <p className="text-[11px] text-neutral-500">rahul.sharma@ldce.ac.in</p>
+                  <p className="text-[11px] text-[#86868B]">rahul.sharma@ldce.ac.in</p>
                 </div>
-                <ArrowRight className="h-4 w-4 text-neutral-400 group-hover:text-[#0071E3] transition-colors" />
+                <ArrowRight className="h-4 w-4 text-[#86868B] group-hover:text-[#0071E3] transition-colors" />
               </button>
             </div>
 
             <div className="relative my-2">
               <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t border-neutral-200 dark:border-zinc-800" />
+                <span className="w-full border-t border-black/[0.06]" />
               </div>
-              <div className="relative flex justify-center text-[10px] uppercase font-semibold text-neutral-400 tracking-wider">
-                <span className="bg-white dark:bg-zinc-900 px-2">Or custom email</span>
+              <div className="relative flex justify-center text-[10px] uppercase font-semibold text-[#86868B] tracking-wider">
+                <span className="bg-white px-2">Or custom Google email</span>
               </div>
             </div>
 
-            <div className="space-y-3">
+            <div className="space-y-2.5">
               <Input
                 type="email"
                 placeholder="your.name@ldce.ac.in"
                 value={demoEmail}
                 onChange={(e) => setDemoEmail(e.target.value)}
-                className="rounded-xl text-xs h-10 border-neutral-200 dark:border-zinc-800"
+                className="rounded-xl text-xs h-10"
               />
               <Button
                 type="button"
                 variant="primary"
-                className="w-full rounded-full h-10 bg-[#0071E3] hover:bg-[#0077ED] text-xs font-medium"
+                className="w-full rounded-full h-10 text-xs font-medium"
                 onClick={() => handleInstantGoogleAuth(demoEmail)}
                 disabled={!demoEmail || !demoEmail.includes("@")}
+                isLoading={isLoading}
               >
-                Sign In with this Google Email
+                Continue with this Email
               </Button>
             </div>
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 }
