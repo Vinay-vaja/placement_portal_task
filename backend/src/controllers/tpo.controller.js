@@ -236,7 +236,11 @@ export const sendAnnouncement = async (req, res, next) => {
 export const getEmailLogs = async (req, res, next) => {
   try {
     const result = await emailService.getEmailLogs(req.query);
-    return sendSuccess(res, 200, "Email logs retrieved successfully", result);
+    return sendSuccess(res, 200, "Email logs retrieved successfully", {
+      logs: result.logs,
+      data: result.logs,
+      total: result.total,
+    });
   } catch (error) {
     next(error);
   }

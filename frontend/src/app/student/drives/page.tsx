@@ -20,6 +20,7 @@ import {
   FileText,
   X,
   Lock,
+  ExternalLink,
 } from "lucide-react";
 
 export default function StudentDrivesPage() {
@@ -229,6 +230,9 @@ export default function StudentDrivesPage() {
               ? new Date(drive.deadline).toLocaleDateString()
               : "Open";
             const branchesList = drive.allowedBranches || (drive as any).eligibleBranches || [];
+            const companyLogo = drive.company?.imageUrl || (drive as any).companyLogo;
+            const brochureMatch = (drive.description || "").match(/Brochure:\s*(https?:\/\/[^\s]+)/i);
+            const brochureUrl = (drive as any).brochureUrl || (brochureMatch ? brochureMatch[1] : null);
 
             return (
               <Card
@@ -238,17 +242,38 @@ export default function StudentDrivesPage() {
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#0071E3]/10 text-[#0071E3]">
-                        <Building2 className="h-5 w-5" />
-                      </div>
-                      <div>
-                        <CardTitle className="text-base font-semibold text-[#1D1D1F]">
+                      {companyLogo ? (
+                        <img
+                          src={companyLogo}
+                          alt={companyTitle}
+                          className="h-10 w-10 rounded-2xl object-contain border border-black/[0.08] bg-white p-1 shrink-0"
+                          onError={(e) => {
+                            (e.target as HTMLElement).style.display = 'none';
+                          }}
+                        />
+                      ) : (
+                        <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#0071E3]/10 text-[#0071E3] shrink-0">
+                          <Building2 className="h-5 w-5" />
+                        </div>
+                      )}
+                      <div className="min-w-0">
+                        <CardTitle className="text-base font-semibold text-[#1D1D1F] truncate">
                           {companyTitle}
                         </CardTitle>
-                        <p className="text-xs font-medium text-[#0071E3]">{jobTitle}</p>
+                        <p className="text-xs font-medium text-[#0071E3] truncate">{jobTitle}</p>
+                        {brochureUrl && (
+                          <a
+                            href={brochureUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-[11px] text-[#0071E3] hover:underline font-medium mt-0.5"
+                          >
+                            <ExternalLink className="h-3 w-3" /> Brochure
+                          </a>
+                        )}
                       </div>
                     </div>
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-[#34C759]/10 text-[#28A745] border border-[#34C759]/20">
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-[#34C759]/10 text-[#28A745] border border-[#34C759]/20 shrink-0">
                       OPEN
                     </span>
                   </div>

@@ -307,19 +307,39 @@ export const updateApplicationStatus = async (applicationId, status) => {
   ];
 
   if (status === "SELECTED") {
-    // Calculate the package for 2x rule
+    // Current drive offer package
     const drive = application.drive;
-    const packageLpa =
+    const thisPackageLpa =
       drive.ctcMax !== null && drive.ctcMax !== undefined
         ? (drive.ctc + drive.ctcMax) / 2
         : drive.ctc;
+
+    // Find all other selected offers for this student to determine the highest package
+    const otherSelected = await prisma.application.findMany({
+      where: {
+        studentId: application.studentId,
+        status: "SELECTED",
+        id: { not: applicationId },
+      },
+      include: {
+        drive: { select: { ctc: true, ctcMax: true } },
+      },
+    });
+
+    const allPackages = [
+      thisPackageLpa,
+      ...otherSelected.map((a) =>
+        a.drive.ctcMax ? (a.drive.ctc + a.drive.ctcMax) / 2 : a.drive.ctc
+      ),
+    ];
+    const highestPackage = Math.max(...allPackages);
 
     updateOperations.push(
       prisma.student.update({
         where: { id: application.studentId },
         data: {
           isPlaced: true,
-          currentPackageLpa: packageLpa,
+          currentPackageLpa: highestPackage,
         },
       })
     );
@@ -335,6 +355,23 @@ export const updateApplicationStatus = async (applicationId, status) => {
 export const markAttendance = async (applicationId, isPresent) => {
   const application = await prisma.application.findUnique({
     where: { id: applicationId },
+    include: {
+      student: {
+        select: {
+          id: true,
+          fullName: true,
+          isPlaced: true,
+          currentPackageLpa: true,
+          applications: {
+            where: { status: "SELECTED" },
+            select: { id: true },
+          },
+        },
+      },
+      drive: {
+        include: { company: { select: { name: true } } },
+      },
+    },
   });
 
   if (!application) {
@@ -348,7 +385,7 @@ export const markAttendance = async (applicationId, isPresent) => {
     isPresent,
   };
 
-  // If student is absent, dismiss them from placement
+  // If student is absent, record dismissed on this application
   if (!isPresent) {
     updateData.dismissedFromPlacement = true;
   }
@@ -370,15 +407,23 @@ export const markAttendance = async (applicationId, isPresent) => {
     },
   });
 
-  // If absent, also dismiss the student globally
+  // Policy rule:
+  // If absent and already placed in another company: "that's okay" (no global debarment, keeps placed job),
+  // but cannot apply to new drives unless 2x salary rule is satisfied.
+  // If absent and NOT placed anywhere: dismissed from placement.
   if (!isPresent) {
-    await prisma.student.update({
-      where: { id: application.studentId },
-      data: {
-        isDismissed: true,
-        dismissalReason: `Absent from drive: ${updatedApplication.drive.role} at ${updatedApplication.drive.company.name}`,
-      },
-    });
+    const isAlreadyPlaced =
+      application.student.isPlaced || application.student.applications.length > 0;
+
+    if (!isAlreadyPlaced) {
+      await prisma.student.update({
+        where: { id: application.studentId },
+        data: {
+          isDismissed: true,
+          dismissalReason: `Absent from drive: ${updatedApplication.drive.role} at ${updatedApplication.drive.company.name}`,
+        },
+      });
+    }
   }
 
   return updatedApplication;
@@ -395,7 +440,17 @@ export const bulkMarkAttendance = async (driveId, studentIds, isPresent) => {
       student: { id: { in: studentIds } },
     },
     include: {
-      student: { select: { id: true, fullName: true } },
+      student: {
+        select: {
+          id: true,
+          fullName: true,
+          isPlaced: true,
+          applications: {
+            where: { status: "SELECTED" },
+            select: { id: true },
+          },
+        },
+      },
     },
   });
 
@@ -422,18 +477,23 @@ export const bulkMarkAttendance = async (driveId, studentIds, isPresent) => {
     })
   );
 
-  // If absent, dismiss students globally
+  // If absent, only dismiss students who do NOT already hold a placement offer
   if (!isPresent) {
-    const dismissUpdates = applications.map((app) =>
-      prisma.student.update({
-        where: { id: app.studentId },
-        data: {
-          isDismissed: true,
-          dismissalReason: `Absent from drive (bulk attendance)`,
-        },
-      })
-    );
-    updates.push(...dismissUpdates);
+    const absentUnplacedStudentIds = applications
+      .filter((app) => !app.student.isPlaced && app.student.applications.length === 0)
+      .map((app) => app.student.id);
+
+    if (absentUnplacedStudentIds.length > 0) {
+      updates.push(
+        prisma.student.updateMany({
+          where: { id: { in: absentUnplacedStudentIds } },
+          data: {
+            isDismissed: true,
+            dismissalReason: "Absent from recruitment drive without prior approval",
+          },
+        })
+      );
+    }
   }
 
   await prisma.$transaction(updates);

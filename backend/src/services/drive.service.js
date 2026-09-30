@@ -34,6 +34,8 @@ export const createDrive = async (data) => {
 
   // Resolve company: either by companyId or by companyName
   let resolvedCompanyId = companyId;
+  const logoUrl = (data.companyLogo || data.imageUrl || data.companyImageUrl || "").trim() || null;
+
   if (!resolvedCompanyId && companyName) {
     const trimmedName = companyName.trim();
     let company = await prisma.company.findFirst({
@@ -41,10 +43,20 @@ export const createDrive = async (data) => {
     });
     if (!company) {
       company = await prisma.company.create({
-        data: { name: trimmedName },
+        data: { name: trimmedName, imageUrl: logoUrl },
+      });
+    } else if (logoUrl && !company.imageUrl) {
+      company = await prisma.company.update({
+        where: { id: company.id },
+        data: { imageUrl: logoUrl },
       });
     }
     resolvedCompanyId = company.id;
+  } else if (resolvedCompanyId && logoUrl) {
+    await prisma.company.update({
+      where: { id: resolvedCompanyId },
+      data: { imageUrl: logoUrl },
+    });
   }
 
   if (!resolvedCompanyId) {
@@ -69,11 +81,20 @@ export const createDrive = async (data) => {
   const finalBranches = allowedBranches || eligibleBranches || [];
   const finalDeadline = applicationDeadline || deadline;
 
+  // Handle optional brochure link
+  let finalDescription = description ?? null;
+  const brochure = (data.brochureUrl || data.brochureLink || "").trim();
+  if (brochure) {
+    finalDescription = finalDescription
+      ? `${finalDescription}\n\n📄 Company Brochure & Documents: ${brochure}`
+      : `📄 Company Brochure & Documents: ${brochure}`;
+  }
+
   const drive = await prisma.recruitmentDrive.create({
     data: {
       companyId: resolvedCompanyId,
       role: finalRole,
-      description: description ?? null,
+      description: finalDescription,
       ctc: finalCtc,
       ctcMax: finalCtcMax,
       location: location ?? null,

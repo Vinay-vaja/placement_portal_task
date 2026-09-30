@@ -57,9 +57,6 @@ export default function TPODashboardPage() {
   const [isRefactoringAi, setIsRefactoringAi] = useState(false);
   const [aiModelUsed, setAiModelUsed] = useState<string | null>(null);
   const [activePresetId, setActivePresetId] = useState<string | null>(null);
-  const [customGroqKey, setCustomGroqKey] = useState("");
-  const [selectedGroqModel, setSelectedGroqModel] = useState("llama-3.3-70b-versatile");
-  const [showKeyInput, setShowKeyInput] = useState(false);
   const [announcementModalTab, setAnnouncementModalTab] = useState<"compose" | "preview">("compose");
 
   const PRESET_TEMPLATES = [
@@ -112,8 +109,6 @@ export default function TPODashboardPage() {
       const res = await tpoService.refactorAnnouncement({
         rawNotes: rawAiNotes.trim(),
         templatePreset: activePresetId || "general",
-        customApiKey: customGroqKey.trim() || undefined,
-        customModel: selectedGroqModel || undefined,
       });
 
       if (res.data) {
@@ -209,13 +204,12 @@ export default function TPODashboardPage() {
     try {
       setIsLoadingLogs(true);
       const res = await tpoService.getEmailLogs({ limit: 50 });
-      if (res.data?.data) {
-        setEmailLogs(res.data.data);
-      } else {
-        setEmailLogs([]);
-      }
+      const raw = res.data as any;
+      const logsList = raw?.logs || raw?.data || (Array.isArray(raw) ? raw : []);
+      setEmailLogs(logsList);
     } catch (err: unknown) {
       console.error("Failed to fetch email logs", err);
+      setEmailLogs([]);
     } finally {
       setIsLoadingLogs(false);
     }
@@ -728,71 +722,17 @@ export default function TPODashboardPage() {
 
               {/* SECTION 2: GROQ AI QUICK REFACTOR */}
               <div className="rounded-2xl border border-[#0071E3]/20 bg-gradient-to-br from-[#0071E3]/[0.03] to-transparent p-4 sm:p-5 space-y-3.5">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-[#0071E3] text-white">
-                      <Sparkles className="h-3.5 w-3.5" />
-                    </div>
-                    <span className="font-semibold text-[#1D1D1F]">
-                      Groq AI HTML Email Refactor
-                    </span>
-                    <span className="text-[10px] text-[#86868B] font-mono bg-white px-2 py-0.5 rounded-full border border-black/[0.06]">
-                      llama-3.3-70b-versatile
-                    </span>
+                <div className="flex items-center gap-2">
+                  <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-[#0071E3] text-white">
+                    <Sparkles className="h-3.5 w-3.5" />
                   </div>
-
-                  <button
-                    type="button"
-                    onClick={() => setShowKeyInput(!showKeyInput)}
-                    className="text-[11px] text-[#0071E3] hover:underline"
-                  >
-                    {showKeyInput ? "Hide API Key" : "Custom Groq Key"}
-                  </button>
+                  <span className="font-semibold text-[#1D1D1F]">
+                    Groq AI HTML Email Refactor
+                  </span>
+                  <span className="text-[10px] text-[#86868B] font-mono bg-white px-2 py-0.5 rounded-full border border-black/[0.06]">
+                    Backend Managed • Llama 3.3
+                  </span>
                 </div>
-
-                {showKeyInput && (
-                  <div className="space-y-2.5 p-3 bg-white/70 rounded-xl border border-black/[0.06]">
-                    <div className="space-y-1">
-                      <label className="text-[11px] font-medium text-[#1D1D1F]">
-                        Custom Groq API Key
-                      </label>
-                      <Input
-                        type="password"
-                        placeholder="gsk_... (Leave blank to use server environment variable)"
-                        value={customGroqKey}
-                        onChange={(e) => setCustomGroqKey(e.target.value)}
-                        className="text-xs h-8"
-                      />
-                    </div>
-
-                    <div className="space-y-1">
-                      <label className="text-[11px] font-medium text-[#1D1D1F]">
-                        Groq Model
-                      </label>
-                      <select
-                        value={selectedGroqModel}
-                        onChange={(e) => setSelectedGroqModel(e.target.value)}
-                        className="w-full h-8 rounded-lg border border-black/[0.1] bg-white px-2.5 text-xs text-[#1D1D1F] focus:border-[#0071E3] focus:outline-none"
-                      >
-                        <option value="llama-3.3-70b-versatile">
-                          llama-3.3-70b-versatile (Recommended / High Quality)
-                        </option>
-                        <option value="llama-3.1-8b-instant">
-                          llama-3.1-8b-instant (Fastest / Lightweight)
-                        </option>
-                        <option value="mixtral-8x7b-32768">
-                          mixtral-8x7b-32768 (MoE Architecture)
-                        </option>
-                        <option value="gemma2-9b-it">
-                          gemma2-9b-it (Google Gemma 2)
-                        </option>
-                      </select>
-                      <p className="text-[10px] text-[#86868B]">
-                        Configured in backend/.env via GROQ_API_KEY and GROQ_MODEL.
-                      </p>
-                    </div>
-                  </div>
-                )}
 
                 <div className="space-y-1.5">
                   <p className="text-[11px] text-[#86868B]">

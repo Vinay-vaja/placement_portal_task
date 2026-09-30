@@ -7,15 +7,18 @@ export interface Company {
   id: string;
   name: string;
   logoUrl?: string;
+  imageUrl?: string;
   website?: string;
   description?: string;
-  createdAt: string;
+  createdAt?: string;
 }
 
 export interface RecruitmentDrive {
   id: string;
   companyId?: string;
   companyName?: string;
+  companyLogo?: string;
+  brochureUrl?: string;
   company?: Company;
   jobRole?: string;
   role?: string;

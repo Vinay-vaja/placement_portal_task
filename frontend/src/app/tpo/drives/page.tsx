@@ -24,6 +24,9 @@ import {
   FileSpreadsheet,
   UserCheck,
   Check,
+  FileText,
+  ExternalLink,
+  ImageIcon,
 } from "lucide-react";
 
 import { ENGINEERING_BRANCHES, BranchCode } from "@/config/constants";
@@ -52,6 +55,7 @@ export default function TPODrivesPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     companyName: "",
+    companyLogo: "",
     jobRole: "",
     minLpa: "",
     maxLpa: "",
@@ -62,6 +66,7 @@ export default function TPODrivesPage() {
     allowedStudentType: "ALL" as "ALL" | "REGULAR" | "D2D",
     deadline: "",
     description: "",
+    brochureUrl: "",
     eligibleBranches: ALL_BRANCHES as BranchCode[],
   });
 
@@ -203,6 +208,7 @@ export default function TPODrivesPage() {
 
       await driveService.createDrive({
         companyName: formData.companyName.trim(),
+        companyLogo: formData.companyLogo.trim() || undefined,
         role: formData.jobRole.trim(),
         ctc: minLpaVal,
         ctcMax: maxLpaVal ?? undefined,
@@ -213,6 +219,7 @@ export default function TPODrivesPage() {
         allowedStudentType: formData.allowedStudentType,
         applicationDeadline: formData.deadline ? new Date(formData.deadline).toISOString() : undefined,
         description: formData.description.trim() || undefined,
+        brochureUrl: formData.brochureUrl.trim() || undefined,
         allowedBranches: formData.eligibleBranches,
       });
 
@@ -220,6 +227,7 @@ export default function TPODrivesPage() {
       // Reset form
       setFormData({
         companyName: "",
+        companyLogo: "",
         jobRole: "",
         minLpa: "",
         maxLpa: "",
@@ -230,6 +238,7 @@ export default function TPODrivesPage() {
         allowedStudentType: "ALL",
         deadline: "",
         description: "",
+        brochureUrl: "",
         eligibleBranches: ALL_BRANCHES,
       });
       fetchDrives();
@@ -304,20 +313,44 @@ export default function TPODrivesPage() {
               ? new Date(drive.deadline).toLocaleDateString()
               : "Open";
             const branchesList = drive.allowedBranches || (drive as any).eligibleBranches || [];
+            const companyLogo = drive.company?.imageUrl || (drive as any).companyLogo;
+            const brochureMatch = (drive.description || "").match(/Brochure:\s*(https?:\/\/[^\s]+)/i);
+            const brochureUrl = (drive as any).brochureUrl || (brochureMatch ? brochureMatch[1] : null);
 
             return (
               <Card key={drive.id} className="border border-slate-200 bg-white shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between">
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600 font-bold border border-blue-100">
-                        <Building2 className="h-5 w-5" />
-                      </div>
-                      <div>
-                        <CardTitle className="text-base font-bold text-slate-900">
+                      {companyLogo ? (
+                        <img
+                          src={companyLogo}
+                          alt={companyTitle}
+                          className="h-10 w-10 rounded-xl object-contain border border-slate-200 bg-white p-1 shrink-0"
+                          onError={(e) => {
+                            (e.target as HTMLElement).style.display = 'none';
+                          }}
+                        />
+                      ) : (
+                        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600 font-bold border border-blue-100 shrink-0">
+                          <Building2 className="h-5 w-5" />
+                        </div>
+                      )}
+                      <div className="min-w-0">
+                        <CardTitle className="text-base font-bold text-slate-900 truncate">
                           {companyTitle}
                         </CardTitle>
-                        <p className="text-xs font-semibold text-blue-600">{jobTitle}</p>
+                        <p className="text-xs font-semibold text-blue-600 truncate">{jobTitle}</p>
+                        {brochureUrl && (
+                          <a
+                            href={brochureUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-[11px] text-blue-600 hover:text-blue-800 font-medium underline mt-0.5"
+                          >
+                            <ExternalLink className="h-3 w-3" /> Brochure
+                          </a>
+                        )}
                       </div>
                     </div>
                     <Badge variant={drive.status === "ACTIVE" ? "success" : "secondary"}>
@@ -459,6 +492,30 @@ export default function TPODrivesPage() {
                     value={formData.jobRole}
                     onChange={(e) => setFormData({ ...formData, jobRole: e.target.value })}
                   />
+                </div>
+              </div>
+
+              {/* Company Logo and Brochure / Documentation Link */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="font-semibold text-slate-700">Company Logo Image URL (Optional)</label>
+                  <Input
+                    type="url"
+                    placeholder="https://example.com/logo.png"
+                    value={formData.companyLogo}
+                    onChange={(e) => setFormData({ ...formData, companyLogo: e.target.value })}
+                  />
+                  <p className="text-[10px] text-slate-500">Provide image URL for official company branding</p>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="font-semibold text-slate-700">Company Brochure / Job Description Link (Optional)</label>
+                  <Input
+                    type="url"
+                    placeholder="https://drive.google.com/... or https://example.com/brochure.pdf"
+                    value={formData.brochureUrl}
+                    onChange={(e) => setFormData({ ...formData, brochureUrl: e.target.value })}
+                  />
+                  <p className="text-[10px] text-slate-500">Public link to PDF, Drive folder, or recruitment brochure</p>
                 </div>
               </div>
 
@@ -693,6 +750,14 @@ export default function TPODrivesPage() {
               </div>
             </div>
 
+            {/* Policy Info Notice */}
+            <div className="bg-amber-50/70 border border-amber-200/80 rounded-xl p-2.5 mx-6 mt-3 text-[11px] text-amber-900 flex items-start gap-2">
+              <AlertCircle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+              <div>
+                <span className="font-bold">Campus Policy:</span> Marking an unplaced student <strong>Absent</strong> debars them from participating in future drives. If a student is already placed (e.g. selected in one drive), absence in this drive is recorded without debarring their confirmed offer. Click &quot;Resume&quot; to review candidate credentials.
+              </div>
+            </div>
+
             {/* Applicants Table */}
             <div className="flex-1 overflow-y-auto">
               {loadingApplicants ? (
@@ -712,6 +777,7 @@ export default function TPODrivesPage() {
                         <th className="py-3 px-3">Candidate</th>
                         <th className="py-3 px-3">Branch / Type</th>
                         <th className="py-3 px-3">10th %</th>
+                        <th className="py-3 px-3">Resume</th>
                         <th className="py-3 px-3">Attendance</th>
                         <th className="py-3 px-3">Selection Status</th>
                       </tr>
@@ -729,6 +795,21 @@ export default function TPODrivesPage() {
                           </td>
                           <td className="py-3 px-3 font-medium">
                             {app.student?.tenthPercentage ? `${app.student.tenthPercentage}%` : "—"}
+                          </td>
+                          <td className="py-3 px-3">
+                            {app.resumeUrl || app.student?.resumeUrl ? (
+                              <a
+                                href={app.resumeUrl || app.student?.resumeUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-blue-50 text-blue-700 hover:bg-blue-100 font-semibold text-[11px] border border-blue-200 transition-colors"
+                                title="Open applicant resume PDF"
+                              >
+                                <FileText className="h-3 w-3" /> Resume
+                              </a>
+                            ) : (
+                              <span className="text-slate-400 italic text-[11px]">No Resume</span>
+                            )}
                           </td>
                           <td className="py-3 px-3">
                             <div className="flex items-center gap-1.5">
