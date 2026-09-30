@@ -184,9 +184,8 @@ export const googleAuth = async (idToken) => {
       try {
         const parts = idToken.split(".");
         if (parts.length === 3) {
-          const decoded = JSON.parse(
-            Buffer.from(parts[1], "base64").toString("utf8")
-          );
+          const jsonStr = Buffer.from(parts[1], "base64url").toString("utf8");
+          const decoded = JSON.parse(jsonStr);
           if (decoded && decoded.email) {
             payload = {
               sub: decoded.sub || `google_${decoded.email}`,
@@ -198,6 +197,7 @@ export const googleAuth = async (idToken) => {
       } catch {
         // ignore
       }
+
       if (!payload) {
         const error = new Error("Invalid Google token: " + err.message);
         error.statusCode = 401;
@@ -209,10 +209,9 @@ export const googleAuth = async (idToken) => {
     try {
       const parts = idToken.split(".");
       if (parts.length === 3) {
-        const decoded = JSON.parse(
-          Buffer.from(parts[1], "base64").toString("utf8")
-        );
-        if (decoded.email) {
+        const jsonStr = Buffer.from(parts[1], "base64url").toString("utf8");
+        const decoded = JSON.parse(jsonStr);
+        if (decoded && decoded.email) {
           payload = {
             sub: decoded.sub || `google_${decoded.email}`,
             email: decoded.email,
@@ -268,6 +267,20 @@ export const googleAuth = async (idToken) => {
         where: { id: user.id },
         data: { googleId, authProvider: "GOOGLE" },
       });
+    }
+
+    // Ensure student record exists
+    if (!user.student && user.role === "STUDENT") {
+      const student = await prisma.student.create({
+        data: {
+          userId: user.id,
+          fullName: name || user.email.split("@")[0],
+          phone: "",
+          dob: new Date("2000-01-01"),
+          tenthPercentage: 0,
+        },
+      });
+      user.student = student;
     }
 
     const token = generateToken({ userId: user.id, role: user.role });

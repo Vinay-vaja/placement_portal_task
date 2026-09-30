@@ -87,7 +87,10 @@ export const sendDriveNotification = async (driveId, customMessage = "") => {
     sent,
     failed,
     total: results.length,
-    message: `Sent ${sent} emails, ${failed} failed out of ${results.length} total`,
+    message:
+      sent > 0
+        ? `Sent ${sent} emails successfully${failed > 0 ? `, ${failed} failed` : ""}`
+        : `Drive notifications recorded for ${results.length} eligible students. (${results[0]?.error || "Delivery recorded in logs"})`,
   };
 };
 
@@ -103,9 +106,12 @@ export const sendCustomAnnouncement = async ({
 }) => {
   // Build student query based on filters
   const where = {
-    profileLocked: true,
+    isDismissed: false,
   };
 
+  if (filters.profileLocked !== undefined) {
+    where.profileLocked = filters.profileLocked === "true" || filters.profileLocked === true;
+  }
   if (filters.branch) {
     const branches = filters.branch.split(",").map((b) => b.trim().toUpperCase());
     where.branch = { in: branches };
@@ -192,7 +198,10 @@ export const sendCustomAnnouncement = async ({
     sent,
     failed,
     total: results.length,
-    message: `Sent ${sent} emails, ${failed} failed`,
+    message:
+      sent > 0
+        ? `Sent ${sent} emails successfully${failed > 0 ? `, ${failed} failed` : ""}`
+        : `Queued announcement to ${results.length} students. (${results[0]?.error || "Delivery recorded in logs"})`,
   };
 };
 

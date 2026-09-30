@@ -68,6 +68,8 @@ export function GoogleSignInButton({
             callback: (resp: any) => window.__googleGsiCallback?.(resp),
             auto_select: false,
             cancel_on_tap_outside: true,
+            use_fedcm_for_prompt: false,
+            itp_support: true,
           });
           window.__googleGsiInitialized = true;
         }
