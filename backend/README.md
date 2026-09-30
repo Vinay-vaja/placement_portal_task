@@ -1,383 +1,225 @@
 # Mini Placement Portal - Backend
 
-A complete RESTful backend for a college Mini Placement Portal, built with Node.js, Express.js, Prisma ORM, and PostgreSQL.
+A complete, production-grade RESTful API backend for a college Mini Placement Portal, built with Node.js (ES Modules), Express.js, Prisma ORM, and PostgreSQL.
 
 ---
 
-## Project Overview
+## 🚀 Key Features
 
-The Mini Placement Portal serves two roles:
-
-- **STUDENT** - Register, submit academic profile, view companies/drives, check eligibility, apply to drives, track applications
-- **CENTRAL_TPO** - Manage students, companies, recruitment drives, verify students, monitor and update applications
+### 👨‍🎓 Student Features
+- **Dual Authentication**:
+  - Email & Password registration & login
+  - Google OAuth 2.0 Sign-In (`POST /api/auth/google`) with automatic profile completion detection
+- **Multi-Step Profile Completion**:
+  - Branch selection (`CE`, `AIML`, `IT`, `EC`, `EE`, `CIVIL`, `CHEMICAL`, `MECHANICAL`, `RUBBER`, `PLASTIC`, `ENVIRONMENTAL`, `IC`)
+  - **10th Standard Marks**: Subject-wise (Maths, Science, English, Social Science, Computer/P.T., Sanskrit, Gujarati) with auto-calculated percentage
+  - **12th Standard Marks** (Regular students): English, Physics, Maths, Chemistry, Computer with auto-calculated percentage
+  - **D2D (Diploma to Degree)**: CGPA and ACPC Rank
+  - Mandatory Declaration checkbox ("I verify all information is correct...")
+  - Profile automatically **locks** upon completion
+- **SPI / CPI / CGPA Academic Engine**:
+  - Semester SPI CRUD (`semesters 1 to 8`)
+  - Auto-computed **CPI**: Average of all entered semester SPIs
+  - Auto-computed **CGPA**: Average of Semester 5 + Semester 6 SPI
+  - Enforces mandatory semester requirements set by Central TPO
+- **Drive Exploration & Applications**:
+  - Browse verified companies and active drives
+  - Real-time eligibility checking with precise rejection reasons
+  - Application submission with:
+    - Fresh PDF resume upload per application (Cloudinary)
+    - Mandatory terms acceptance
+    - One-role-per-company constraint enforcement (unless waived by TPO)
+    - **2x Salary Rule**: If student already placed, new drive CTC must be >= 2x current package
+  - Application history and status tracking with pagination
 
 ---
 
-## Tech Stack
+### 🏛️ Central TPO (Training & Placement Officer) Features
+- **Student Profile Verification & Management**:
+  - View all student profiles with rich pagination, search, and multi-faceted filtering
+  - Verify / reject student academic profiles
+  - Edit student profile even after profile lock
+  - **Disciplinary Actions**: Dismiss student from placement or reinstate them
+- **Company & Drive Management**:
+  - Create companies with logo upload (Cloudinary)
+  - Create drives with comprehensive criteria:
+    - Minimum 10th %, 12th %, CPI, CGPA
+    - Allowed branches list
+    - Allowed student types (`ALL`, `REGULAR`, `D2D`)
+    - Max active backlogs limit
+    - CTC / CTC range (Min-Max LPA)
+    - Max selections per student & TPO override flag
+    - Structured round details (dates, timing, venue)
+  - Close or update drives
+- **Attendance & Disciplinary Automation**:
+  - Single and bulk attendance marking for interview/test rounds
+  - Automatically dismiss absent students from placement
+- **TPO Dashboard & Analytics**:
+  - Student stats (verified, pending, placed, dismissed, branch-wise, type-wise)
+  - Drive & company metrics
+  - Application funnel (applied, shortlisted, selected, rejected)
+  - CTC statistics: Highest, lowest, average, median packages; company-wise and branch-wise breakdown
+- **Automated Email Communications (Brevo Integration)**:
+  - Automated status updates on application status changes
+  - Drive announcement emails to filtered/eligible students
+  - Broadcast announcements with custom body and targeting
+  - Comprehensive email audit logs
+- **Data Exporting**:
+  - Export filtered students list to **CSV** or **Excel (.xlsx)** via `exceljs`
+  - Export drive applicant lists with contact, marks, and resume links
+- **Placement Settings**:
+  - Configure mandatory semesters required for drive eligibility
+
+---
+
+## 🛠️ Tech Stack
 
 | Layer | Technology |
-|-------|-----------|
+|---|---|
 | Runtime | Node.js (ES Modules) |
-| Framework | Express.js |
-| ORM | Prisma v5 |
-| Database | PostgreSQL |
-| Auth | JWT (jsonwebtoken) |
-| Passwords | bcrypt |
+| Framework | Express.js 5 |
+| ORM | Prisma v5 (PostgreSQL) |
+| Authentication | JWT (`jsonwebtoken`), bcrypt, Google OAuth (`google-auth-library`) |
 | Validation | Zod |
-| Environment | dotenv |
-| Cross-Origin | CORS |
+| File Storage | Cloudinary (Images + Resumes in PDF format) |
+| Email Service | Brevo (formerly Sendinblue) SDK |
+| Spreadsheet Export | ExcelJS & CSV streaming |
+| File Uploads | Multer |
 
 ---
 
-## Prerequisites
+## ⚙️ Environment Variables
 
-- Node.js >= 18
-- PostgreSQL (running locally or remote)
-- npm
+Create `.env` file in the backend root by copying `.env.example`:
 
----
-
-## PostgreSQL Setup
-
-1. Install PostgreSQL from https://www.postgresql.org/download/
-2. Start PostgreSQL service
-3. Create the database:
-
-```sql
-CREATE DATABASE placement_portal;
-```
-
-4. Note your PostgreSQL username, password, host, and port.
-
----
-
-## Environment Variables
-
-Copy `.env.example` to `.env` and fill in your values:
-
-```bash
-cp .env.example .env
-```
-
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `PORT` | Server port | `5000` |
-| `DATABASE_URL` | PostgreSQL connection string | `postgresql://postgres:password@localhost:5432/placement_portal` |
-| `JWT_SECRET` | Secret key for JWT signing | `your-strong-secret-here` |
-| `JWT_EXPIRES_IN` | JWT token expiry | `7d` |
-| `CLIENT_URL` | Frontend URL for CORS | `http://localhost:3000` |
-| `SEED_TPO_EMAIL` | TPO account email for seed | `tpo@college.edu` |
-| `SEED_TPO_PASSWORD` | TPO account password for seed | `secure-password` |
-
-**Example `.env`:**
 ```env
+# Server
 PORT=5000
-DATABASE_URL="postgresql://postgres:yourpassword@localhost:5432/placement_portal"
-JWT_SECRET="super-secret-jwt-key-change-in-production"
+DATABASE_URL="postgresql://postgres:password@localhost:5432/placement_portal"
+JWT_SECRET="your-super-secret-jwt-key"
 JWT_EXPIRES_IN="7d"
 CLIENT_URL="http://localhost:3000"
-SEED_TPO_EMAIL="tpo@college.edu"
-SEED_TPO_PASSWORD="SecureTPO@123"
+
+# Initial Seed Credentials
+SEED_TPO_EMAIL="tpo@example.com"
+SEED_TPO_PASSWORD="SecureTPOPassword@123"
+
+# Cloudinary
+CLOUDINARY_CLOUD_NAME="your_cloudinary_cloud_name"
+CLOUDINARY_API_KEY="your_cloudinary_api_key"
+CLOUDINARY_API_SECRET="your_cloudinary_api_secret"
+
+# Google OAuth
+GOOGLE_CLIENT_ID="your_google_client_id.apps.googleusercontent.com"
+
+# Brevo (Sendinblue)
+BREVO_API_KEY="your_brevo_api_key"
+BREVO_SENDER_EMAIL="placements@yourcollege.edu"
+BREVO_SENDER_NAME="Placement Cell"
 ```
 
 ---
 
-## Installation & Setup
+## 📋 API Reference
 
-### 1. Install Dependencies
+### 🔐 Authentication (`/api/auth`)
+| Method | Endpoint | Access | Description |
+|---|---|---|---|
+| POST | `/api/auth/register` | Public | Register student with email & password |
+| POST | `/api/auth/login` | Public | Login with email & password |
+| POST | `/api/auth/google` | Public | Google OAuth login / registration (`idToken`) |
+
+---
+
+### 🎓 Students (`/api/students`)
+| Method | Endpoint | Access | Description |
+|---|---|---|---|
+| GET | `/api/students/profile` | Student | Get current student's profile & SPIs |
+| POST | `/api/students/complete-profile` | Student | Complete profile with marks, branch & lock profile |
+| POST | `/api/students/profile` | Student | Legacy profile submit endpoint |
+| POST | `/api/students/spi` | Student | Add or update semester SPI |
+| GET | `/api/students/spi` | Student | Get all semester SPIs with calculated CPI & CGPA |
+| PUT | `/api/students/spi/:semester` | Student | Update a specific semester SPI |
+| GET | `/api/students/applications` | Student | View own applications (paginated) |
+
+---
+
+### 🏢 Companies (`/api/companies`)
+| Method | Endpoint | Access | Description |
+|---|---|---|---|
+| GET | `/api/companies` | Authenticated | List all companies (search, pagination) |
+| GET | `/api/companies/:id` | Authenticated | Get company details with active drives |
+| POST | `/api/companies` | TPO Only | Create company (with optional logo upload) |
+| PUT | `/api/companies/:id` | TPO Only | Update company details/logo |
+
+---
+
+### 📢 Recruitment Drives (`/api/drives`)
+| Method | Endpoint | Access | Description |
+|---|---|---|---|
+| GET | `/api/drives` | Authenticated | List drives (filtered by branch, ctc, pagination) |
+| GET | `/api/drives/:id` | Authenticated | Get drive details |
+| POST | `/api/drives` | TPO Only | Create new recruitment drive with criteria |
+| PUT | `/api/drives/:id` | TPO Only | Update recruitment drive |
+| PATCH | `/api/drives/:id/status` | TPO Only | Toggle drive status (`ACTIVE` / `CLOSED`) |
+| GET | `/api/drives/:id/eligibility` | Student | Check student eligibility for this drive |
+| GET | `/api/drives/:id/eligible-students` | TPO Only | Get all eligible students for drive |
+| POST | `/api/drives/:id/apply` | Student | Apply to drive (requires PDF resume upload & terms acceptance) |
+
+---
+
+### 📝 Applications (`/api/applications`)
+| Method | Endpoint | Access | Description |
+|---|---|---|---|
+| PATCH | `/api/applications/:id/status` | TPO Only | Update status (`SHORTLISTED`, `SELECTED`, `REJECTED`) |
+
+---
+
+### 🏛️ TPO Portal Management (`/api/tpo`)
+| Method | Endpoint | Access | Description |
+|---|---|---|---|
+| GET | `/api/tpo/dashboard` | TPO Only | Complete placement dashboard analytics & CTC metrics |
+| GET | `/api/tpo/students` | TPO Only | Filter & search students (by branch, marks, placed, dismissed) |
+| GET | `/api/tpo/students/:id` | TPO Only | Get full student academic record |
+| PATCH | `/api/tpo/students/:id/verify` | TPO Only | Verify or reject student profile |
+| PUT | `/api/tpo/students/:id` | TPO Only | Admin update of student record |
+| PATCH | `/api/tpo/students/:id/dismiss` | TPO Only | Dismiss student from placement drives |
+| PATCH | `/api/tpo/students/:id/reinstate` | TPO Only | Reinstate dismissed student |
+| GET | `/api/tpo/applications` | TPO Only | List all applications across drives with filters |
+| PATCH | `/api/tpo/applications/:id/attendance` | TPO Only | Mark student attendance (`isPresent: true/false`) |
+| POST | `/api/tpo/drives/:driveId/mark-attendance`| TPO Only | Bulk mark attendance for round |
+| POST | `/api/tpo/drives/:driveId/notify` | TPO Only | Broadcast email notification to drive applicants |
+| POST | `/api/tpo/announcements/send` | TPO Only | Send announcement email to targeted students |
+| GET | `/api/tpo/emails` | TPO Only | View sent email audit logs (paginated) |
+| GET | `/api/tpo/students/export` | TPO Only | Export filtered students (`?format=csv` or `?format=xlsx`) |
+| GET | `/api/tpo/drives/:driveId/export` | TPO Only | Export drive applicants (`?format=csv` or `?format=xlsx`) |
+| GET | `/api/tpo/settings` | TPO Only | Get portal configuration (mandatory semesters, etc.) |
+| PATCH | `/api/tpo/settings/required-semesters` | TPO Only | Update mandatory semesters required |
+
+---
+
+## 📦 Setup & Running
 
 ```bash
+# 1. Install dependencies
 npm install
-```
 
-### 2. Configure Environment
+# 2. Setup database
+npx prisma generate
+npx prisma migrate dev --name init_overhaul
 
-```bash
-# Copy example env and fill in your PostgreSQL credentials
-cp .env.example .env
-```
-
-### 3. Generate Prisma Client
-
-```bash
-npm run prisma:generate
-```
-
-### 4. Run Database Migration
-
-```bash
-npm run prisma:migrate
-```
-
-> This creates all tables in your PostgreSQL database.
-
-### 5. Seed the Database (Creates TPO Account)
-
-```bash
+# 3. Seed initial TPO account & settings
 npm run prisma:seed
-```
 
-> Uses `SEED_TPO_EMAIL` and `SEED_TPO_PASSWORD` from `.env`. Idempotent - safe to run multiple times.
-
-### 6. Start Development Server
-
-```bash
+# 4. Start development server
 npm run dev
 ```
 
-Server starts at: **http://localhost:5000**
-
-Health check: **http://localhost:5000/api/health**
-
 ---
 
-## Project Structure
-
-```
-backend/
-|-- src/
-|   |-- config/
-|   |   |-- env.js              # Environment config & validation
-|   |   `-- prisma.js           # Singleton PrismaClient instance
-|   |
-|   |-- controllers/            # Thin layer: request -> service -> response
-|   |   |-- auth.controller.js
-|   |   |-- student.controller.js
-|   |   |-- tpo.controller.js
-|   |   |-- company.controller.js
-|   |   |-- drive.controller.js
-|   |   `-- application.controller.js
-|   |
-|   |-- services/               # Business logic layer
-|   |   |-- auth.service.js
-|   |   |-- student.service.js
-|   |   |-- company.service.js
-|   |   |-- drive.service.js
-|   |   |-- eligibility.service.js
-|   |   `-- application.service.js
-|   |
-|   |-- routes/                 # Route definitions with middleware
-|   |   |-- auth.routes.js
-|   |   |-- student.routes.js
-|   |   |-- tpo.routes.js
-|   |   |-- company.routes.js
-|   |   |-- drive.routes.js
-|   |   `-- application.routes.js
-|   |
-|   |-- middleware/
-|   |   |-- auth.middleware.js   # JWT verification -> req.user
-|   |   |-- role.middleware.js   # requireRole() factory
-|   |   |-- error.middleware.js  # Global error handler
-|   |   `-- notFound.middleware.js
-|   |
-|   |-- validators/              # Zod schemas as Express middleware
-|   |   |-- validate.js          # validate() factory
-|   |   |-- auth.validator.js
-|   |   |-- student.validator.js
-|   |   |-- company.validator.js
-|   |   |-- drive.validator.js
-|   |   `-- application.validator.js
-|   |
-|   |-- utils/
-|   |   |-- jwt.js              # generateToken, verifyToken
-|   |   |-- password.js         # hashPassword, comparePassword
-|   |   `-- response.js         # sendSuccess, sendError
-|   |
-|   |-- app.js                  # Express app setup (no server start)
-|   `-- server.js               # DB connect + server listen
-|
-|-- prisma/
-|   |-- schema.prisma           # All models, enums, relations
-|   `-- seed.js                 # TPO account seeder
-|
-|-- .env                        # Local environment (not in git)
-|-- .env.example                # Environment template
-|-- .gitignore
-|-- package.json
-`-- README.md
-```
-
----
-
-## API Endpoints
-
-### System
-| Method | URL | Auth | Description |
-|--------|-----|------|-------------|
-| GET | `/api/health` | None | Health check |
-
-### Authentication
-| Method | URL | Auth | Description |
-|--------|-----|------|-------------|
-| POST | `/api/auth/register` | None | Register student account |
-| POST | `/api/auth/login` | None | Login (returns JWT) |
-
-### Student (requires STUDENT role)
-| Method | URL | Auth | Description |
-|--------|-----|------|-------------|
-| GET | `/api/students/me` | Student | Get own profile |
-| POST | `/api/students/profile` | Student | Submit profile (locks it) |
-| PUT | `/api/students/profile` | Student | Update profile (if not locked) |
-| GET | `/api/students/applications` | Student | View own applications |
-
-### TPO - Students (requires CENTRAL_TPO role)
-| Method | URL | Auth | Description |
-|--------|-----|------|-------------|
-| GET | `/api/tpo/students` | TPO | Get all students |
-| GET | `/api/tpo/students/:id` | TPO | Get specific student |
-| PUT | `/api/tpo/students/:id` | TPO | Update any student (can update locked profiles) |
-| PATCH | `/api/tpo/students/:id/verify` | TPO | Update verification status |
-
-### Companies
-| Method | URL | Auth | Description |
-|--------|-----|------|-------------|
-| GET | `/api/companies` | Any auth | List all companies |
-| GET | `/api/companies/:id` | Any auth | Get company details |
-| POST | `/api/companies` | TPO | Create company |
-| PUT | `/api/companies/:id` | TPO | Update company |
-| DELETE | `/api/companies/:id` | TPO | Delete company |
-
-### Recruitment Drives
-| Method | URL | Auth | Description |
-|--------|-----|------|-------------|
-| GET | `/api/drives` | Any auth | List all drives |
-| GET | `/api/drives/:id` | Any auth | Get drive details |
-| POST | `/api/drives` | TPO | Create drive |
-| PUT | `/api/drives/:id` | TPO | Update drive |
-| DELETE | `/api/drives/:id` | TPO | Delete drive |
-| GET | `/api/drives/:driveId/eligible-students` | TPO | Get eligible students |
-
-### Applications
-| Method | URL | Auth | Description |
-|--------|-----|------|-------------|
-| POST | `/api/drives/:driveId/apply` | Student | Apply to a drive |
-| GET | `/api/tpo/applications` | TPO | View all applications |
-| PATCH | `/api/applications/:id/status` | TPO | Update application status |
-
----
-
-## Roles
-
-### STUDENT
-- Can register and login
-- Can view/submit their academic profile
-- Profile **locks permanently** after submission
-- Can view all companies and recruitment drives
-- Can check eligibility and apply to drives
-- Can view their own applications and status
-
-### CENTRAL_TPO
-- Created via seed script (not via registration API)
-- Can view, update, verify any student profile (including locked profiles)
-- Full CRUD on companies and recruitment drives
-- Can define eligibility criteria per drive
-- Can filter eligible students per drive
-- Can view all applications with filters
-- Can update application statuses (APPLIED -> SHORTLISTED -> REJECTED / SELECTED)
-
----
-
-## Important Business Rules
-
-| Rule | Description |
-|------|-------------|
-| **Profile Locking** | Student profile locks permanently after `POST /api/students/profile`. Backend enforces this. |
-| **TPO Override** | TPO can update any student profile, even locked ones. |
-| **Eligibility Authority** | Backend always recalculates eligibility on apply. Frontend eligibility display is informational only. |
-| **D2D Students** | D2D students do NOT require 12th percentage. They use D2D CGPA instead. |
-| **REGULAR Students** | REGULAR students require 12th percentage. |
-| **10th = Percentage** | 10th standard uses `percentage`, never `percentile`. |
-| **Duplicate Application** | DB-level unique constraint prevents applying to the same drive twice. |
-| **Drive Status** | Only `ACTIVE` drives accept applications. `CLOSED` drives are read-only. |
-| **Deadline Enforcement** | Application deadline is enforced by the backend. Expired drives reject applications. |
-| **Role Authorization** | All role checks are enforced by backend middleware. Never trusts frontend. |
-
----
-
-## Authentication Flow
-
-1. **Register**: `POST /api/auth/register` -> Creates `User` + `Student` records
-2. **Login**: `POST /api/auth/login` -> Returns `{ token, user }`
-3. **Use Token**: Add to requests as `Authorization: Bearer <token>`
-4. **JWT Payload**: `{ userId, role }` - role is `STUDENT` or `CENTRAL_TPO`
-
----
-
-## Database Models
-
-| Model | Description |
-|-------|-------------|
-| `User` | Auth credentials (email, passwordHash, role) |
-| `Student` | Academic profile (marks, percentages, D2D info, profile lock status) |
-| `Company` | Company info (name, imageUrl) |
-| `RecruitmentDrive` | Drive details + eligibility criteria |
-| `Application` | Student-Drive application with status tracking |
-
----
-
-## Seed Commands
-
-```bash
-# Create the Central TPO account (reads from SEED_TPO_EMAIL and SEED_TPO_PASSWORD in .env)
-npm run prisma:seed
-```
-
-The seed is **idempotent** - running it multiple times won't create duplicate accounts.
-
----
-
-## All npm Scripts
-
-```bash
-npm run dev              # Start with --watch (auto-restart on file changes)
-npm run start            # Start in production mode
-npm run prisma:generate  # Generate Prisma Client
-npm run prisma:migrate   # Run database migrations
-npm run prisma:seed      # Seed the TPO account
-npm run prisma:studio    # Open Prisma Studio GUI
-```
-
----
-
-## Testing Checklist
-
-### Auth
-- [ ] Student register
-- [ ] Duplicate email rejected (409)
-- [ ] Login with correct credentials
-- [ ] Login with wrong password (401)
-- [ ] Access protected route without token (401)
-- [ ] Access protected route with invalid token (401)
-
-### Roles
-- [ ] Student cannot access TPO endpoints (403)
-- [ ] TPO cannot access student-only endpoints (403)
-
-### Profile
-- [ ] Get own profile (student)
-- [ ] Submit REGULAR profile (with 12th %)
-- [ ] Submit D2D profile (with D2D CGPA, no 12th required)
-- [ ] Profile locks after submission
-- [ ] Locked student cannot edit profile (403)
-- [ ] TPO can edit locked student profile
-
-### Companies
-- [ ] TPO creates company
-- [ ] Student views company list
-- [ ] Student cannot create company (403)
-
-### Drives
-- [ ] TPO creates drive with eligibility criteria
-- [ ] Student views drive list
-- [ ] Student cannot create drive (403)
-
-### Eligibility & Applications
-- [ ] Eligible student can apply
-- [ ] Ineligible student gets rejection with reasons
-- [ ] Duplicate application rejected (409)
-- [ ] Application to closed drive rejected
-- [ ] Application to expired drive rejected
-- [ ] Student views own applications
-- [ ] TPO views all applications
-- [ ] TPO updates application status
-- [ ] Student cannot update application status (403)
+## 🛡️ Business Rules Implemented
+1. **Profile Lock**: Students cannot alter academic credentials once submitted unless unlocked/edited by Central TPO.
+2. **One-Role-Per-Company**: Students cannot apply to multiple drives of the same company unless `tpoAllowMultiple` is enabled.
+3. **2x Salary Rule**: Already placed students can only apply to drives offering $\ge 2 \times$ their current CTC.
+4. **Attendance Enforcement**: Failing to appear for a drive interview/round causes automated placement dismissal.
+5. **Dynamic CPI/CGPA**: Real-time evaluation of CPI (all sem SPIs) and CGPA (sem 5 & 6) enforced against drive minimum criteria.

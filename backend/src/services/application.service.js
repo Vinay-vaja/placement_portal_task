@@ -1,16 +1,33 @@
 import prisma from "../config/prisma.js";
 import { checkStudentEligibility } from "./eligibility.service.js";
+import { uploadPdfToCloudinary } from "../config/cloudinary.js";
+import { parsePagination, buildPaginatedResponse, parseSorting } from "../utils/pagination.js";
 
 /**
- * Student applies to a recruitment drive
- * All business rules are enforced here - backend is the final authority
+ * Student applies to a recruitment drive.
+ * All business rules are enforced here — backend is the final authority.
  *
- * @param {string} userId - The authenticated student's userId
+ * Requirements:
+ * - Profile must be locked
+ * - Must not be dismissed
+ * - Drive must be ACTIVE and not past deadline
+ * - Must pass eligibility check (including 2x salary rule)
+ * - Can only apply to 1 role per company (unless tpoAllowMultiple)
+ * - Must accept terms
+ * - Must upload resume PDF
+ *
+ * @param {string} userId
  * @param {string} driveId
+ * @param {Object} applicationData - { termsAccepted, resumeBuffer }
  */
-export const applyToDrive = async (userId, driveId) => {
-  // 1. Get student
-  const student = await prisma.student.findUnique({ where: { userId } });
+export const applyToDrive = async (userId, driveId, applicationData) => {
+  const { termsAccepted, resumeBuffer } = applicationData;
+
+  // 1. Get student with SPIs for eligibility check
+  const student = await prisma.student.findUnique({
+    where: { userId },
+    include: { semesterSpis: { orderBy: { semester: "asc" } } },
+  });
 
   if (!student) {
     const error = new Error("Student profile not found");
@@ -18,19 +35,40 @@ export const applyToDrive = async (userId, driveId) => {
     throw error;
   }
 
-  // 2. Profile must be submitted/locked before applying
+  // 2. Profile must be submitted/locked
   if (!student.profileLocked) {
+    const error = new Error("You must submit your profile before applying to drives");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  // 3. Student must not be dismissed
+  if (student.isDismissed) {
+    const error = new Error("You have been dismissed from the placement process");
+    error.statusCode = 403;
+    throw error;
+  }
+
+  // 4. Terms must be accepted
+  if (!termsAccepted) {
     const error = new Error(
-      "You must submit your profile before applying to drives"
+      "You must accept the terms: 'If you cannot participate after applying, you will not be allowed for the upcoming placement journey.'"
     );
     error.statusCode = 400;
     throw error;
   }
 
-  // 3. Get drive
+  // 5. Resume is mandatory
+  if (!resumeBuffer) {
+    const error = new Error("Resume PDF is required for each application. Please upload a new PDF.");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  // 6. Get drive
   const drive = await prisma.recruitmentDrive.findUnique({
     where: { id: driveId },
-    include: { company: { select: { name: true } } },
+    include: { company: { select: { id: true, name: true, imageUrl: true } } },
   });
 
   if (!drive) {
@@ -39,21 +77,21 @@ export const applyToDrive = async (userId, driveId) => {
     throw error;
   }
 
-  // 4. Drive must be ACTIVE
+  // 7. Drive must be ACTIVE
   if (drive.status !== "ACTIVE") {
     const error = new Error("This recruitment drive is closed and not accepting applications");
     error.statusCode = 400;
     throw error;
   }
 
-  // 5. Deadline must not have passed
+  // 8. Deadline must not have passed
   if (drive.applicationDeadline && new Date() > new Date(drive.applicationDeadline)) {
     const error = new Error("The application deadline for this drive has passed");
     error.statusCode = 400;
     throw error;
   }
 
-  // 6. Check eligibility (backend is final authority - never trust frontend)
+  // 9. Check eligibility (backend is final authority)
   const eligibility = checkStudentEligibility(student, drive);
   if (!eligibility.eligible) {
     const error = new Error("You are not eligible for this drive");
@@ -62,7 +100,7 @@ export const applyToDrive = async (userId, driveId) => {
     throw error;
   }
 
-  // 7. Check duplicate application
+  // 10. Check duplicate application
   const existingApplication = await prisma.application.findUnique({
     where: {
       studentId_driveId: {
@@ -78,17 +116,51 @@ export const applyToDrive = async (userId, driveId) => {
     throw error;
   }
 
-  // 8. Create application
+  // 11. One-role-per-company check (unless TPO allows multiple)
+  if (!drive.tpoAllowMultiple) {
+    const companyApplications = await prisma.application.findMany({
+      where: {
+        studentId: student.id,
+        drive: { companyId: drive.companyId },
+      },
+    });
+
+    if (companyApplications.length >= drive.maxSelectionsPerStudent) {
+      const error = new Error(
+        `You can only apply to ${drive.maxSelectionsPerStudent} role(s) per company. You have already applied to ${companyApplications.length} role(s) at this company.`
+      );
+      error.statusCode = 400;
+      throw error;
+    }
+  }
+
+  // 12. Upload resume PDF to Cloudinary
+  let resumeUrl;
+  try {
+    const result = await uploadPdfToCloudinary(
+      resumeBuffer,
+      `placement_portal/resumes/${student.id}`
+    );
+    resumeUrl = result.secure_url;
+  } catch (uploadError) {
+    const error = new Error("Failed to upload resume. Please try again.");
+    error.statusCode = 500;
+    throw error;
+  }
+
+  // 13. Create application
   const application = await prisma.application.create({
     data: {
       studentId: student.id,
       driveId,
       status: "APPLIED",
+      resumeUrl,
+      termsAccepted: true,
     },
     include: {
       drive: {
         include: {
-          company: { select: { name: true, imageUrl: true } },
+          company: { select: { id: true, name: true, imageUrl: true } },
         },
       },
     },
@@ -98,9 +170,9 @@ export const applyToDrive = async (userId, driveId) => {
 };
 
 /**
- * Get all applications for the logged-in student
+ * Get all applications for the logged-in student (paginated)
  */
-export const getStudentApplications = async (userId) => {
+export const getStudentApplications = async (userId, query = {}) => {
   const student = await prisma.student.findUnique({ where: { userId } });
 
   if (!student) {
@@ -109,71 +181,158 @@ export const getStudentApplications = async (userId) => {
     throw error;
   }
 
-  const applications = await prisma.application.findMany({
-    where: { studentId: student.id },
-    include: {
-      drive: {
-        include: {
-          company: { select: { id: true, name: true, imageUrl: true } },
+  const { skip, take, page, limit } = parsePagination(query);
+
+  const where = { studentId: student.id };
+  if (query.status) {
+    where.status = query.status;
+  }
+
+  const [applications, total] = await Promise.all([
+    prisma.application.findMany({
+      where,
+      include: {
+        drive: {
+          include: {
+            company: { select: { id: true, name: true, imageUrl: true } },
+          },
         },
       },
-    },
-    orderBy: { appliedAt: "desc" },
-  });
+      orderBy: { appliedAt: "desc" },
+      skip,
+      take,
+    }),
+    prisma.application.count({ where }),
+  ]);
 
-  return applications;
+  return buildPaginatedResponse(applications, total, page, limit);
 };
 
 /**
- * Get all applications (TPO view with filtering)
+ * Get all applications (TPO view with filtering and pagination)
  */
-export const getTpoApplications = async (filters = {}) => {
+export const getTpoApplications = async (query = {}) => {
+  const { skip, take, page, limit } = parsePagination(query);
   const where = {};
 
-  if (filters.status) {
-    where.status = filters.status;
+  if (query.status) {
+    where.status = query.status;
+  }
+  if (query.driveId) {
+    where.driveId = query.driveId;
+  }
+  if (query.companyId) {
+    where.drive = { companyId: query.companyId };
+  }
+  if (query.studentId) {
+    where.studentId = query.studentId;
   }
 
-  if (filters.driveId) {
-    where.driveId = filters.driveId;
-  }
-
-  if (filters.companyId) {
-    where.drive = { companyId: filters.companyId };
-  }
-
-  const applications = await prisma.application.findMany({
-    where,
-    include: {
-      student: {
-        select: {
-          id: true,
-          fullName: true,
-          phone: true,
-          studentType: true,
-          tenthPercentage: true,
-          twelfthPercentage: true,
-          d2dCgpa: true,
-          verificationStatus: true,
-          user: { select: { email: true } },
+  const [applications, total] = await Promise.all([
+    prisma.application.findMany({
+      where,
+      include: {
+        student: {
+          select: {
+            id: true,
+            fullName: true,
+            phone: true,
+            branch: true,
+            studentType: true,
+            tenthPercentage: true,
+            twelfthPercentage: true,
+            d2dCgpa: true,
+            verificationStatus: true,
+            isPlaced: true,
+            currentPackageLpa: true,
+            user: { select: { email: true } },
+          },
+        },
+        drive: {
+          include: {
+            company: { select: { id: true, name: true, imageUrl: true } },
+          },
         },
       },
-      drive: {
-        include: {
-          company: { select: { id: true, name: true, imageUrl: true } },
-        },
-      },
-    },
-    orderBy: { appliedAt: "desc" },
-  });
+      orderBy: { appliedAt: "desc" },
+      skip,
+      take,
+    }),
+    prisma.application.count({ where }),
+  ]);
 
-  return applications;
+  return buildPaginatedResponse(applications, total, page, limit);
 };
 
 /**
  * Update application status (TPO only)
+ * Transitions: APPLIED -> SHORTLISTED -> SELECTED/REJECTED
+ * When SELECTED: updates student's placement status and currentPackageLpa
  */
 export const updateApplicationStatus = async (applicationId, status) => {
+  const application = await prisma.application.findUnique({
+    where: { id: applicationId },
+    include: {
+      drive: true,
+      student: true,
+    },
+  });
+
+  if (!application) {
+    const error = new Error("Application not found");
+    error.statusCode = 404;
+    throw error;
+  }
+
+  // If status is SELECTED, also update student's placement tracking
+  const updateOperations = [
+    prisma.application.update({
+      where: { id: applicationId },
+      data: { status },
+      include: {
+        student: {
+          select: {
+            id: true,
+            fullName: true,
+            user: { select: { email: true } },
+          },
+        },
+        drive: {
+          include: {
+            company: { select: { name: true } },
+          },
+        },
+      },
+    }),
+  ];
+
+  if (status === "SELECTED") {
+    // Calculate the package for 2x rule
+    const drive = application.drive;
+    const packageLpa =
+      drive.ctcMax !== null && drive.ctcMax !== undefined
+        ? (drive.ctc + drive.ctcMax) / 2
+        : drive.ctc;
+
+    updateOperations.push(
+      prisma.student.update({
+        where: { id: application.studentId },
+        data: {
+          isPlaced: true,
+          currentPackageLpa: packageLpa,
+        },
+      })
+    );
+  }
+
+  const results = await prisma.$transaction(updateOperations);
+  return results[0]; // Return the updated application
+};
+
+/**
+ * Mark attendance for a single application (TPO only)
+ */
+export const markAttendance = async (applicationId, isPresent) => {
   const application = await prisma.application.findUnique({
     where: { id: applicationId },
   });
@@ -184,9 +343,19 @@ export const updateApplicationStatus = async (applicationId, status) => {
     throw error;
   }
 
+  const updateData = {
+    attendanceMarked: true,
+    isPresent,
+  };
+
+  // If student is absent, dismiss them from placement
+  if (!isPresent) {
+    updateData.dismissedFromPlacement = true;
+  }
+
   const updatedApplication = await prisma.application.update({
     where: { id: applicationId },
-    data: { status },
+    data: updateData,
     include: {
       student: {
         select: {
@@ -196,12 +365,82 @@ export const updateApplicationStatus = async (applicationId, status) => {
         },
       },
       drive: {
-        include: {
-          company: { select: { name: true } },
-        },
+        include: { company: { select: { name: true } } },
       },
     },
   });
 
+  // If absent, also dismiss the student globally
+  if (!isPresent) {
+    await prisma.student.update({
+      where: { id: application.studentId },
+      data: {
+        isDismissed: true,
+        dismissalReason: `Absent from drive: ${updatedApplication.drive.role} at ${updatedApplication.drive.company.name}`,
+      },
+    });
+  }
+
   return updatedApplication;
+};
+
+/**
+ * Bulk mark attendance for a drive (TPO only)
+ */
+export const bulkMarkAttendance = async (driveId, studentIds, isPresent) => {
+  // Find all applications for this drive for the given students
+  const applications = await prisma.application.findMany({
+    where: {
+      driveId,
+      student: { id: { in: studentIds } },
+    },
+    include: {
+      student: { select: { id: true, fullName: true } },
+    },
+  });
+
+  if (applications.length === 0) {
+    const error = new Error("No applications found for the specified students and drive");
+    error.statusCode = 404;
+    throw error;
+  }
+
+  const updateData = {
+    attendanceMarked: true,
+    isPresent,
+  };
+
+  if (!isPresent) {
+    updateData.dismissedFromPlacement = true;
+  }
+
+  // Update all applications
+  const updates = applications.map((app) =>
+    prisma.application.update({
+      where: { id: app.id },
+      data: updateData,
+    })
+  );
+
+  // If absent, dismiss students globally
+  if (!isPresent) {
+    const dismissUpdates = applications.map((app) =>
+      prisma.student.update({
+        where: { id: app.studentId },
+        data: {
+          isDismissed: true,
+          dismissalReason: `Absent from drive (bulk attendance)`,
+        },
+      })
+    );
+    updates.push(...dismissUpdates);
+  }
+
+  await prisma.$transaction(updates);
+
+  return {
+    updated: applications.length,
+    isPresent,
+    studentIds: applications.map((a) => a.studentId),
+  };
 };

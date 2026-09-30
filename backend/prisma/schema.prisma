@@ -2,7 +2,8 @@
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
 }
 
 datasource db {
@@ -19,9 +20,29 @@ enum UserRole {
   CENTRAL_TPO
 }
 
+enum AuthProvider {
+  LOCAL
+  GOOGLE
+}
+
 enum StudentType {
   REGULAR
   D2D
+}
+
+enum Branch {
+  CE
+  AIML
+  IT
+  EC
+  EE
+  CIVIL
+  CHEMICAL
+  MECHANICAL
+  RUBBER
+  PLASTIC
+  ENVIRONMENTAL
+  IC
 }
 
 enum VerificationStatus {
@@ -48,17 +69,24 @@ enum AllowedStudentType {
   D2D
 }
 
+enum EmailStatus {
+  SENT
+  FAILED
+}
+
 // ============================
 // MODELS
 // ============================
 
 model User {
-  id           String   @id @default(cuid())
-  email        String   @unique
-  passwordHash String
-  role         UserRole @default(STUDENT)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id           String       @id @default(cuid())
+  email        String       @unique
+  passwordHash String? // Nullable for Google OAuth users
+  role         UserRole     @default(STUDENT)
+  googleId     String?      @unique
+  authProvider AuthProvider @default(LOCAL)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
 
   // Relations
   student Student?
@@ -74,44 +102,95 @@ model Student {
   fullName String
   phone    String
   dob      DateTime
+  branch   Branch?
 
   // Student type determines academic requirements
   studentType StudentType @default(REGULAR)
 
-  // 10th Standard Subject Marks
-  mathsMarks        Float?
-  scienceMarks      Float?
-  englishMarks      Float?
+  // ===============================
+  // 10th Standard Subject Marks (out of 100)
+  // Maths, English, Social Science, Science, Computer/P.T., Sanskrit, Gujarati
+  // ===============================
+  mathsMarks         Float?
+  scienceMarks       Float?
+  englishMarks       Float?
   socialScienceMarks Float?
-  otherMarks        Float?
+  computerPtMarks    Float?
+  sanskritMarks       Float?
+  gujaratiMarks      Float?
 
-  // 10th percentage is required for ALL students
-  tenthPercentage Float
+  // 10th percentage (auto-calculated from subject marks on profile submit)
+  tenthPercentage Float @default(0)
 
-  // 12th percentage - required ONLY for REGULAR students, null for D2D
+  // ===============================
+  // 12th Standard Subject Marks (REGULAR only, out of 100)
+  // English, Physics, Maths, Chemistry, Computer
+  // ===============================
+  twelfthEnglishMarks   Float?
+  twelfthPhysicsMarks   Float?
+  twelfthMathsMarks     Float?
+  twelfthChemistryMarks Float?
+  twelfthComputerMarks  Float?
+
+  // 12th percentage (auto-calculated, REGULAR only)
   twelfthPercentage Float?
 
+  // ===============================
   // D2D fields - required ONLY for D2D students
-  d2dCgpa    Float?
-  d2dCollege String?
-  d2dDetails String?
+  // ===============================
+  d2dCgpa     Float?
+  d2dCollege  String?
+  d2dDetails  String?
+  d2dAcpcRank Int?
 
+  // ===============================
   // Profile management
+  // ===============================
   profileLocked      Boolean            @default(false)
   verificationStatus VerificationStatus @default(PENDING)
+
+  // Declaration: student verifies all info is correct
+  declarationAccepted Boolean @default(false)
+
+  // ===============================
+  // Placement tracking (2x salary rule)
+  // ===============================
+  isPlaced          Boolean @default(false)
+  currentPackageLpa Float?
+  isDismissed       Boolean @default(false)
+  dismissalReason   String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   // Relations
-  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   applications Application[]
+  semesterSpis SemesterSpi[]
 
   @@map("students")
 }
 
+/// Stores per-semester SPI values for each student.
+/// CPI = average of ALL entered SPIs
+/// CGPA = average of sem 5 + sem 6 SPI only
+model SemesterSpi {
+  id        String @id @default(cuid())
+  studentId String
+  semester  Int // 1-8
+  spi       Float // out of 10
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, semester])
+  @@map("semester_spis")
+}
+
 model Company {
-  id       String @id @default(cuid())
+  id       String  @id @default(cuid())
   name     String
   imageUrl String?
 
@@ -131,27 +210,37 @@ model RecruitmentDrive {
   // Drive information
   role        String
   description String?
-  ctc         Float
+  ctc         Float // Exact CTC in LPA, or min CTC if range
+  ctcMax      Float? // Max CTC in LPA if range (null = exact value)
   location    String?
 
-  // Eligibility criteria (all nullable - only configured if required)
-  minTenthPercentage  Float?
+  // ===============================
+  // Eligibility criteria (all nullable — only configured if required)
+  // ===============================
+  minTenthPercentage   Float?
   minTwelfthPercentage Float?
-  minCgpa             Float?
-  minCpi              Float?
-  allowedStudentType  AllowedStudentType @default(ALL)
-  backlogsAllowed     Boolean            @default(false)
+  minCgpa              Float?
+  minCpi               Float?
+  allowedStudentType   AllowedStudentType @default(ALL)
+  allowedBranches      Branch[] // Empty array = all branches allowed
+  backlogsAllowed      Boolean            @default(false)
 
+  // ===============================
   // Drive management
-  applicationDeadline DateTime?
-  status              DriveStatus @default(ACTIVE)
+  // ===============================
+  applicationDeadline     DateTime?
+  status                  DriveStatus @default(ACTIVE)
+  maxSelectionsPerStudent Int         @default(1) // Roles a student can pick per company
+  tpoAllowMultiple        Boolean     @default(false) // TPO override for multi-role selection
+  roundDetails            Json? // { rounds: [{name, date, time, venue}] }
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   // Relations
-  company      Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  applications Application[]
+  company       Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  applications  Application[]
+  announcements Announcement[]
 
   @@map("recruitment_drives")
 }
@@ -161,9 +250,17 @@ model Application {
   studentId String
   driveId   String
 
-  status    ApplicationStatus @default(APPLIED)
-  appliedAt DateTime          @default(now())
-  updatedAt DateTime          @updatedAt
+  status        ApplicationStatus @default(APPLIED)
+  resumeUrl     String // PDF uploaded per application (mandatory)
+  termsAccepted Boolean           @default(false)
+
+  // Attendance tracking
+  attendanceMarked       Boolean  @default(false)
+  isPresent              Boolean?
+  dismissedFromPlacement Boolean  @default(false)
+
+  appliedAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relations
   student Student          @relation(fields: [studentId], references: [id], onDelete: Cascade)
@@ -172,4 +269,44 @@ model Application {
   // A student can only apply once to a drive
   @@unique([studentId, driveId])
   @@map("applications")
+}
+
+model Announcement {
+  id       String  @id @default(cuid())
+  title    String
+  body     String  @db.Text
+  driveId  String?
+  sentById String // userId of TPO who sent it
+
+  createdAt DateTime @default(now())
+
+  drive RecruitmentDrive? @relation(fields: [driveId], references: [id], onDelete: SetNull)
+
+  @@map("announcements")
+}
+
+model EmailLog {
+  id           String      @id @default(cuid())
+  toEmail      String
+  subject      String
+  templateName String
+  driveId      String?
+  status       EmailStatus @default(SENT)
+  error        String?
+
+  sentAt DateTime @default(now())
+
+  @@map("email_logs")
+}
+
+/// Key-value settings for TPO configuration
+/// e.g. key="required_semesters" value="[1,2,3,4,5]"
+model TpoSetting {
+  id    String @id @default(cuid())
+  key   String @unique
+  value String // JSON string
+
+  updatedAt DateTime @updatedAt
+
+  @@map("tpo_settings")
 }

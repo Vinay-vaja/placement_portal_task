@@ -17,6 +17,16 @@ const errorMiddleware = (err, req, res, next) => {
     return sendError(res, 400, "Validation failed", errors);
   }
 
+  // Multer file upload errors
+  if (err.name === "MulterError") {
+    const messages = {
+      LIMIT_FILE_SIZE: "File is too large. Maximum allowed size exceeded.",
+      LIMIT_UNEXPECTED_FILE: "Unexpected file field.",
+      LIMIT_FILE_COUNT: "Too many files uploaded.",
+    };
+    return sendError(res, 400, messages[err.code] || "File upload error");
+  }
+
   // Prisma known request errors
   if (err.code) {
     switch (err.code) {
@@ -46,7 +56,9 @@ const errorMiddleware = (err, req, res, next) => {
 
   // Custom application errors with a statusCode
   if (err.statusCode) {
-    return sendError(res, err.statusCode, err.message);
+    // Include eligibility reasons if present (from eligibility check failures)
+    const errors = err.reasons || [];
+    return sendError(res, err.statusCode, err.message, errors);
   }
 
   // Generic server error - never expose internals

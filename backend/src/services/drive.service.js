@@ -1,4 +1,5 @@
 import prisma from "../config/prisma.js";
+import { parsePagination, buildPaginatedResponse } from "../utils/pagination.js";
 
 /**
  * Create a new recruitment drive (TPO only)
@@ -9,15 +10,20 @@ export const createDrive = async (data) => {
     role,
     description,
     ctc,
+    ctcMax,
     location,
     minTenthPercentage,
     minTwelfthPercentage,
     minCgpa,
     minCpi,
     allowedStudentType,
+    allowedBranches,
     backlogsAllowed,
     applicationDeadline,
     status,
+    maxSelectionsPerStudent,
+    tpoAllowMultiple,
+    roundDetails,
   } = data;
 
   // Verify company exists
@@ -34,15 +40,20 @@ export const createDrive = async (data) => {
       role,
       description: description ?? null,
       ctc,
+      ctcMax: ctcMax ?? null,
       location: location ?? null,
       minTenthPercentage: minTenthPercentage ?? null,
       minTwelfthPercentage: minTwelfthPercentage ?? null,
       minCgpa: minCgpa ?? null,
       minCpi: minCpi ?? null,
       allowedStudentType: allowedStudentType || "ALL",
+      allowedBranches: allowedBranches || [],
       backlogsAllowed: backlogsAllowed ?? false,
       applicationDeadline: applicationDeadline ? new Date(applicationDeadline) : null,
       status: status || "ACTIVE",
+      maxSelectionsPerStudent: maxSelectionsPerStudent ?? 1,
+      tpoAllowMultiple: tpoAllowMultiple ?? false,
+      roundDetails: roundDetails ?? null,
     },
     include: {
       company: { select: { id: true, name: true, imageUrl: true } },
@@ -53,29 +64,43 @@ export const createDrive = async (data) => {
 };
 
 /**
- * Get all recruitment drives
+ * Get all recruitment drives (paginated with filters)
  */
-export const getDrives = async (filters = {}) => {
+export const getDrives = async (query = {}) => {
+  const { skip, take, page, limit } = parsePagination(query);
   const where = {};
 
-  if (filters.status) {
-    where.status = filters.status;
+  if (query.status) {
+    where.status = query.status;
+  }
+  if (query.companyId) {
+    where.companyId = query.companyId;
+  }
+  if (query.allowedStudentType) {
+    where.allowedStudentType = query.allowedStudentType;
   }
 
-  if (filters.companyId) {
-    where.companyId = filters.companyId;
+  // Filter by branches
+  if (query.branch) {
+    const branches = query.branch.split(",").map((b) => b.trim().toUpperCase());
+    where.allowedBranches = { hasSome: branches };
   }
 
-  const drives = await prisma.recruitmentDrive.findMany({
-    where,
-    include: {
-      company: { select: { id: true, name: true, imageUrl: true } },
-      _count: { select: { applications: true } },
-    },
-    orderBy: { createdAt: "desc" },
-  });
+  const [drives, total] = await Promise.all([
+    prisma.recruitmentDrive.findMany({
+      where,
+      include: {
+        company: { select: { id: true, name: true, imageUrl: true } },
+        _count: { select: { applications: true } },
+      },
+      orderBy: { createdAt: "desc" },
+      skip,
+      take,
+    }),
+    prisma.recruitmentDrive.count({ where }),
+  ]);
 
-  return drives;
+  return buildPaginatedResponse(drives, total, page, limit);
 };
 
 /**
