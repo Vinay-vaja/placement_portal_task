@@ -179,6 +179,27 @@ export const getDashboardStats = async () => {
       : 0;
 
   return {
+    // Top-level aliases for direct access
+    totalStudents,
+    verifiedStudents,
+    pendingVerification: pendingStudents,
+    rejectedStudents,
+    placedStudents,
+    totalPlaced: placedStudents,
+    dismissedStudents,
+    activeDrives,
+    totalCompanies,
+    companiesCount: totalCompanies,
+    totalApplications,
+    attendanceRate,
+    highestPackage: packageStats.highest,
+    lowestPackage: packageStats.lowest,
+    averagePackage: packageStats.average,
+    medianPackage: packageStats.median,
+    placementPercentage: placementRate,
+    placementRate,
+
+    // Rich nested structures
     students: {
       total: totalStudents,
       verified: verifiedStudents,
@@ -204,7 +225,6 @@ export const getDashboardStats = async () => {
       companyWise,
       branchWise,
     },
-    placementRate,
   };
 };
 

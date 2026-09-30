@@ -37,7 +37,10 @@ export default function TPOStudentsPage() {
   // Selected student for detailed modal
   const [selectedStudent, setSelectedStudent] = useState<StudentProfile | null>(null);
   const [rejectionReason, setRejectionReason] = useState("");
+  const [dismissReason, setDismissReason] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isExportingCsv, setIsExportingCsv] = useState(false);
+  const [isExportingXlsx, setIsExportingXlsx] = useState(false);
 
   const fetchStudents = async () => {
     try {
@@ -69,6 +72,23 @@ export default function TPOStudentsPage() {
     fetchStudents();
   };
 
+  const handleExport = async (format: "csv" | "xlsx") => {
+    try {
+      if (format === "csv") setIsExportingCsv(true);
+      else setIsExportingXlsx(true);
+      await tpoService.exportStudents(format, {
+        search: search || undefined,
+        branch: branch !== "ALL" ? branch : undefined,
+        verificationStatus: status !== "ALL" ? status : undefined,
+      });
+    } catch (err: unknown) {
+      alert((err as Error)?.message || `Failed to export ${format.toUpperCase()}`);
+    } finally {
+      if (format === "csv") setIsExportingCsv(false);
+      else setIsExportingXlsx(false);
+    }
+  };
+
   const handleVerify = async (studentId: string, verifyStatus: "PENDING" | "VERIFIED" | "REJECTED") => {
     try {
       setIsProcessing(true);
@@ -87,6 +107,33 @@ export default function TPOStudentsPage() {
     }
   };
 
+  const handleDismiss = async (studentId: string) => {
+    try {
+      setIsProcessing(true);
+      await tpoService.dismissStudent(studentId, dismissReason || "Dismissed by Central TPO");
+      setSelectedStudent(null);
+      setDismissReason("");
+      fetchStudents();
+    } catch (err: unknown) {
+      alert((err as Error)?.message || "Failed to dismiss student");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleReinstate = async (studentId: string) => {
+    try {
+      setIsProcessing(true);
+      await tpoService.reinstateStudent(studentId);
+      setSelectedStudent(null);
+      fetchStudents();
+    } catch (err: unknown) {
+      alert((err as Error)?.message || "Failed to reinstate student");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   return (
     <div className="space-y-6 max-w-7xl mx-auto py-4 px-2 sm:px-4">
       {/* Header Banner */}
@@ -99,10 +146,30 @@ export default function TPOStudentsPage() {
             Inspect submitted academic records, 10th Gujarati/Sanskrit marks, CPIs, and verify student eligibility.
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Badge className="bg-[#0071E3]/10 text-[#0071E3] border border-[#0071E3]/20 font-medium px-3 py-1 rounded-full text-xs">
-            {students.length} Registered Students
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge className="bg-[#0071E3]/10 text-[#0071E3] border border-[#0071E3]/20 font-medium px-3 py-1.5 rounded-full text-xs">
+            {students.length} Registered
           </Badge>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handleExport("csv")}
+            disabled={isExportingCsv}
+            className="gap-1.5 text-xs font-medium h-9 border-black/[0.12] hover:bg-neutral-50"
+          >
+            <Download className="h-4 w-4 text-[#34C759]" />
+            {isExportingCsv ? "Exporting..." : "Export CSV"}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handleExport("xlsx")}
+            disabled={isExportingXlsx}
+            className="gap-1.5 text-xs font-medium h-9 border-black/[0.12] hover:bg-neutral-50"
+          >
+            <Download className="h-4 w-4 text-[#0071E3]" />
+            {isExportingXlsx ? "Exporting..." : "Export Excel"}
+          </Button>
         </div>
       </div>
 
@@ -207,7 +274,11 @@ export default function TPOStudentsPage() {
                         {student.cpi ? Number(student.cpi).toFixed(2) : "—"}
                       </td>
                       <td className="py-3.5 px-4">
-                        {student.verificationStatus === "VERIFIED" ? (
+                        {student.isDismissed ? (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-rose-50 px-2.5 py-0.5 text-[11px] font-semibold text-rose-700 border border-rose-200">
+                            <XCircle className="h-3 w-3 text-rose-600" /> Dismissed
+                          </span>
+                        ) : student.verificationStatus === "VERIFIED" ? (
                           <span className="inline-flex items-center gap-1 rounded-full bg-[#34C759]/10 px-2.5 py-0.5 text-[11px] font-medium text-[#28A745] border border-[#34C759]/20">
                             <CheckCircle2 className="h-3 w-3 text-[#28A745]" /> Verified
                           </span>
@@ -414,6 +485,63 @@ export default function TPOStudentsPage() {
                 </div>
               </div>
             )}
+
+            {/* Placement Eligibility & Disciplinary Status */}
+            <div className="p-4 rounded-2xl bg-[#F5F5F7]/80 border border-black/[0.06] space-y-2.5">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-2">
+                    <h4 className="text-xs font-semibold text-[#1D1D1F]">Placement Eligibility Status</h4>
+                    {selectedStudent.isDismissed ? (
+                      <Badge className="bg-red-50 text-red-600 border border-red-200 text-[10px]">
+                        DISMISSED
+                      </Badge>
+                    ) : (
+                      <Badge className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px]">
+                        ELIGIBLE
+                      </Badge>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-[#86868B]">
+                    {selectedStudent.isDismissed
+                      ? `Reason: ${selectedStudent.dismissalReason || "Dismissed by TPO cell"}`
+                      : "Student is actively eligible to view and apply for placement drives."}
+                  </p>
+                </div>
+
+                {selectedStudent.isDismissed ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleReinstate(selectedStudent.id)}
+                    disabled={isProcessing}
+                    className="text-xs font-medium text-emerald-700 border-emerald-300 hover:bg-emerald-50"
+                  >
+                    Reinstate Student
+                  </Button>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <Input
+                      placeholder="Reason for dismissal..."
+                      value={dismissReason}
+                      onChange={(e) => setDismissReason(e.target.value)}
+                      className="text-xs h-8 max-w-[200px]"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleDismiss(selectedStudent.id)}
+                      disabled={isProcessing}
+                      className="text-xs font-medium text-[#FF3B30] border-red-300 hover:bg-red-50"
+                    >
+                      Dismiss
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </div>
 
             {/* Verification Actions */}
             <div className="space-y-3 pt-4 border-t border-black/[0.06]">

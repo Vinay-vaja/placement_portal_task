@@ -7,15 +7,16 @@ import { sendError } from "../utils/response.js";
 const authMiddleware = (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
+    let token = null;
 
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return sendError(res, 401, "Authorization token is required");
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+      token = authHeader.split(" ")[1];
+    } else if (req.query && req.query.token) {
+      token = req.query.token;
     }
 
-    const token = authHeader.split(" ")[1];
-
     if (!token) {
-      return sendError(res, 401, "Authorization token is missing");
+      return sendError(res, 401, "Authorization token is required");
     }
 
     const decoded = verifyToken(token);

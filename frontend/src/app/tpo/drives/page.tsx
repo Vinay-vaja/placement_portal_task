@@ -19,9 +19,15 @@ import {
   XCircle,
   X,
   Users,
+  Mail,
+  Download,
+  FileSpreadsheet,
+  UserCheck,
+  Check,
 } from "lucide-react";
 
 import { ENGINEERING_BRANCHES, BranchCode } from "@/config/constants";
+import { tpoService } from "@/services/tpo.service";
 
 const ALL_BRANCHES: BranchCode[] = ENGINEERING_BRANCHES.map((b) => b.code);
 
@@ -29,6 +35,17 @@ export default function TPODrivesPage() {
   const [drives, setDrives] = useState<RecruitmentDrive[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // Drive action states
+  const [notifyingDriveId, setNotifyingDriveId] = useState<string | null>(null);
+  const [exportingDriveId, setExportingDriveId] = useState<string | null>(null);
+
+  // Applicants & Attendance Modal State
+  const [applicantsModalOpen, setApplicantsModalOpen] = useState(false);
+  const [activeDriveForApplicants, setActiveDriveForApplicants] = useState<RecruitmentDrive | null>(null);
+  const [driveApplicants, setDriveApplicants] = useState<any[]>([]);
+  const [loadingApplicants, setLoadingApplicants] = useState(false);
+  const [statusUpdatingId, setStatusUpdatingId] = useState<string | null>(null);
 
   // New Drive Modal State
   const [modalOpen, setModalOpen] = useState(false);
@@ -61,6 +78,83 @@ export default function TPODrivesPage() {
       setErrorMessage((err as Error)?.message || "Failed to fetch recruitment drives");
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleNotifyDrive = async (driveId: string) => {
+    try {
+      setNotifyingDriveId(driveId);
+      const res = await tpoService.notifyDriveApplicants(driveId);
+      alert(res.data?.message || "Eligible students have been notified via email!");
+    } catch (err: unknown) {
+      alert((err as Error)?.message || "Failed to send drive notifications");
+    } finally {
+      setNotifyingDriveId(null);
+    }
+  };
+
+  const handleExportDriveApplicants = async (driveId: string, format: "csv" | "xlsx") => {
+    try {
+      setExportingDriveId(`${driveId}-${format}`);
+      await tpoService.exportDriveApplicants(driveId, format);
+    } catch (err: unknown) {
+      alert((err as Error)?.message || `Failed to export applicants as ${format.toUpperCase()}`);
+    } finally {
+      setExportingDriveId(null);
+    }
+  };
+
+  const handleOpenApplicants = async (drive: RecruitmentDrive) => {
+    setActiveDriveForApplicants(drive);
+    setApplicantsModalOpen(true);
+    try {
+      setLoadingApplicants(true);
+      const res = await tpoService.getApplications({ driveId: drive.id, limit: 100 });
+      if (res.data?.data) {
+        setDriveApplicants(res.data.data);
+      } else {
+        setDriveApplicants([]);
+      }
+    } catch (err: unknown) {
+      alert((err as Error)?.message || "Failed to load drive applicants");
+    } finally {
+      setLoadingApplicants(false);
+    }
+  };
+
+  const handleUpdateStatus = async (
+    applicationId: string,
+    status: "APPLIED" | "SHORTLISTED" | "REJECTED" | "SELECTED"
+  ) => {
+    try {
+      setStatusUpdatingId(applicationId);
+      await tpoService.updateApplicationStatus(applicationId, status);
+      // Refresh local list
+      setDriveApplicants((prev) =>
+        prev.map((app) => (app.id === applicationId ? { ...app, status } : app))
+      );
+    } catch (err: unknown) {
+      alert((err as Error)?.message || "Failed to update application status");
+    } finally {
+      setStatusUpdatingId(null);
+    }
+  };
+
+  const handleMarkAttendance = async (applicationId: string, isPresent: boolean) => {
+    try {
+      setStatusUpdatingId(applicationId);
+      await tpoService.markAttendance(applicationId, isPresent);
+      setDriveApplicants((prev) =>
+        prev.map((app) =>
+          app.id === applicationId
+            ? { ...app, attendanceMarked: true, isPresent }
+            : app
+        )
+      );
+    } catch (err: unknown) {
+      alert((err as Error)?.message || "Failed to mark attendance");
+    } finally {
+      setStatusUpdatingId(null);
     }
   };
 
@@ -272,6 +366,55 @@ export default function TPODrivesPage() {
                     </div>
                   </div>
                 </CardContent>
+
+                <div className="p-3 border-t border-slate-100 bg-slate-50/70 rounded-b-xl flex flex-wrap items-center justify-between gap-1.5 text-xs">
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleNotifyDrive(drive.id)}
+                      disabled={notifyingDriveId === drive.id}
+                      className="h-7 text-[11px] px-2 gap-1 border-slate-200 text-blue-600 hover:bg-blue-50"
+                      title="Send email notification to all eligible students"
+                    >
+                      <Mail className="h-3.5 w-3.5" />
+                      {notifyingDriveId === drive.id ? "Sending..." : "Notify"}
+                    </Button>
+
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleExportDriveApplicants(drive.id, "csv")}
+                      disabled={exportingDriveId === `${drive.id}-csv`}
+                      className="h-7 text-[11px] px-2 gap-1 border-slate-200 text-emerald-600 hover:bg-emerald-50"
+                      title="Export applicants as CSV"
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                      {exportingDriveId === `${drive.id}-csv` ? "..." : "CSV"}
+                    </Button>
+
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleExportDriveApplicants(drive.id, "xlsx")}
+                      disabled={exportingDriveId === `${drive.id}-xlsx`}
+                      className="h-7 text-[11px] px-2 gap-1 border-slate-200 text-blue-600 hover:bg-blue-50"
+                      title="Export applicants as Excel"
+                    >
+                      <FileSpreadsheet className="h-3.5 w-3.5" />
+                      {exportingDriveId === `${drive.id}-xlsx` ? "..." : "XLSX"}
+                    </Button>
+                  </div>
+
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={() => handleOpenApplicants(drive)}
+                    className="h-7 text-[11px] px-2.5 gap-1.5"
+                  >
+                    <Users className="h-3.5 w-3.5" /> Applicants
+                  </Button>
+                </div>
               </Card>
             );
           })}
@@ -501,6 +644,156 @@ export default function TPODrivesPage() {
                 </Button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Applicants & Attendance Modal */}
+      {applicantsModalOpen && activeDriveForApplicants && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs">
+          <div className="w-full max-w-4xl max-h-[88vh] flex flex-col bg-white rounded-3xl shadow-2xl border border-slate-200 p-6 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-slate-100 pb-4 gap-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-base font-bold text-slate-900">
+                    Applicants for {activeDriveForApplicants.company?.name || (activeDriveForApplicants as any).companyName}
+                  </h3>
+                  <Badge variant="default" className="text-[10px]">
+                    {activeDriveForApplicants.role || (activeDriveForApplicants as any).jobRole}
+                  </Badge>
+                </div>
+                <p className="text-xs text-slate-500">
+                  Update candidate selection status (triggers email notification) and mark drive attendance.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleExportDriveApplicants(activeDriveForApplicants.id, "csv")}
+                  className="h-8 text-xs font-medium gap-1 text-emerald-600 hover:bg-emerald-50 border-slate-200"
+                >
+                  <Download className="h-3.5 w-3.5" /> CSV
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleExportDriveApplicants(activeDriveForApplicants.id, "xlsx")}
+                  className="h-8 text-xs font-medium gap-1 text-blue-600 hover:bg-blue-50 border-slate-200"
+                >
+                  <FileSpreadsheet className="h-3.5 w-3.5" /> Excel
+                </Button>
+                <button
+                  onClick={() => setApplicantsModalOpen(false)}
+                  className="rounded-full p-1.5 text-slate-400 hover:bg-slate-100 transition-colors ml-1"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Applicants Table */}
+            <div className="flex-1 overflow-y-auto">
+              {loadingApplicants ? (
+                <div className="p-12 text-center text-xs text-slate-500 font-medium">
+                  Loading applicants...
+                </div>
+              ) : driveApplicants.length === 0 ? (
+                <div className="p-12 text-center text-xs text-slate-500 space-y-2">
+                  <Users className="mx-auto h-8 w-8 text-slate-300" />
+                  <p>No student applications submitted for this recruitment drive yet.</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse text-xs">
+                    <thead>
+                      <tr className="border-b border-slate-100 bg-slate-50/70 text-[11px] font-semibold text-slate-500">
+                        <th className="py-3 px-3">Candidate</th>
+                        <th className="py-3 px-3">Branch / Type</th>
+                        <th className="py-3 px-3">10th %</th>
+                        <th className="py-3 px-3">Attendance</th>
+                        <th className="py-3 px-3">Selection Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 text-slate-800">
+                      {driveApplicants.map((app) => (
+                        <tr key={app.id} className="hover:bg-slate-50/50 transition-colors">
+                          <td className="py-3 px-3">
+                            <div className="font-semibold text-slate-900">{app.student?.fullName || "Student"}</div>
+                            <div className="text-[11px] text-slate-500 font-mono">{app.student?.user?.email}</div>
+                          </td>
+                          <td className="py-3 px-3">
+                            <div className="font-medium">{app.student?.branch || "—"}</div>
+                            <div className="text-[10px] text-slate-400">{app.student?.studentType || "REGULAR"}</div>
+                          </td>
+                          <td className="py-3 px-3 font-medium">
+                            {app.student?.tenthPercentage ? `${app.student.tenthPercentage}%` : "—"}
+                          </td>
+                          <td className="py-3 px-3">
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => handleMarkAttendance(app.id, true)}
+                                disabled={statusUpdatingId === app.id}
+                                className={`px-2 py-0.5 rounded text-[10px] font-semibold transition-colors ${
+                                  app.attendanceMarked && app.isPresent
+                                    ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
+                                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                                }`}
+                              >
+                                Present
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleMarkAttendance(app.id, false)}
+                                disabled={statusUpdatingId === app.id}
+                                className={`px-2 py-0.5 rounded text-[10px] font-semibold transition-colors ${
+                                  app.attendanceMarked && !app.isPresent
+                                    ? "bg-rose-100 text-rose-800 border border-rose-300"
+                                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                                }`}
+                              >
+                                Absent
+                              </button>
+                            </div>
+                          </td>
+                          <td className="py-3 px-3">
+                            <select
+                              value={app.status}
+                              disabled={statusUpdatingId === app.id}
+                              onChange={(e) =>
+                                handleUpdateStatus(
+                                  app.id,
+                                  e.target.value as "APPLIED" | "SHORTLISTED" | "REJECTED" | "SELECTED"
+                                )
+                              }
+                              className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-700 focus:outline-none focus:border-blue-500"
+                            >
+                              <option value="APPLIED">APPLIED</option>
+                              <option value="SHORTLISTED">SHORTLISTED</option>
+                              <option value="SELECTED">SELECTED</option>
+                              <option value="REJECTED">REJECTED</option>
+                            </select>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            <div className="pt-3 border-t border-slate-100 text-right">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setApplicantsModalOpen(false)}
+                className="text-xs"
+              >
+                Close
+              </Button>
+            </div>
           </div>
         </div>
       )}
