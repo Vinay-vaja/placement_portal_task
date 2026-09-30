@@ -24,13 +24,17 @@ export default function StudentApplicationsPage() {
     try {
       setIsLoading(true);
       const res = await studentService.getApplications();
-      if (res.data) {
-        setApplications(res.data);
+      const raw = res.data as any;
+      if (Array.isArray(raw)) {
+        setApplications(raw);
+      } else if (raw?.data && Array.isArray(raw.data)) {
+        setApplications(raw.data);
       } else {
         setApplications([]);
       }
     } catch (err: unknown) {
       setErrorMessage((err as Error)?.message || "Failed to load application history");
+      setApplications([]);
     } finally {
       setIsLoading(false);
     }
@@ -39,6 +43,8 @@ export default function StudentApplicationsPage() {
   useEffect(() => {
     fetchApplications();
   }, []);
+
+  const appList = Array.isArray(applications) ? applications : [];
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto py-4 px-2 sm:px-4">
@@ -54,7 +60,7 @@ export default function StudentApplicationsPage() {
         </div>
         <div className="flex items-center gap-2">
           <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-[#0071E3]/10 text-[#0071E3] border border-[#0071E3]/20">
-            {applications.length} Submissions
+            {appList.length} Submissions
           </span>
         </div>
       </div>
@@ -72,7 +78,7 @@ export default function StudentApplicationsPage() {
             <div className="p-12 text-center text-xs text-[#86868B]">
               Loading application history...
             </div>
-          ) : applications.length === 0 ? (
+          ) : appList.length === 0 ? (
             <div className="p-12 text-center space-y-3">
               <FileCheck className="mx-auto h-10 w-10 text-[#A1A1A6]" />
               <h3 className="text-sm font-semibold text-[#1D1D1F]">No Applications Submitted Yet</h3>
@@ -93,7 +99,7 @@ export default function StudentApplicationsPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-black/[0.04] text-xs text-[#1D1D1F]">
-                  {applications.map((app) => (
+                  {appList.map((app) => (
                     <tr key={app.id} className="hover:bg-[#F5F5F7]/40 transition-colors">
                       <td className="py-3.5 px-4 font-medium text-[#1D1D1F] flex items-center gap-2">
                         <Building2 className="h-4 w-4 text-[#0071E3]" />

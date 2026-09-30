@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Mail, ArrowRight, X, Sparkles } from "lucide-react";
+import { Mail, ArrowRight, X } from "lucide-react";
 
 declare global {
   interface Window {
@@ -13,10 +13,11 @@ declare global {
         id: {
           initialize: (config: any) => void;
           renderButton: (parent: HTMLElement, options: any) => void;
-          prompt: (callback?: (notification: any) => void) => void;
         };
       };
     };
+    __googleGsiInitialized?: boolean;
+    __googleGsiCallback?: (response: any) => void;
   }
 }
 
@@ -33,26 +34,27 @@ export function GoogleSignInButton({
   const [isLoading, setIsLoading] = useState(false);
   const [showDemoModal, setShowDemoModal] = useState(false);
   const [demoEmail, setDemoEmail] = useState("");
-  const [isGsiLoaded, setIsGsiLoaded] = useState(false);
   const googleBtnContainerRef = useRef<HTMLDivElement>(null);
 
   const clientId =
     process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ||
     "828847997086-fn3jqe9tvmmp1ud4hj2vvr1p1g1mgned.apps.googleusercontent.com";
 
-  // Handle credential returned by Google
-  const handleCredentialResponse = async (response: any) => {
-    if (response?.credential) {
-      try {
-        setIsLoading(true);
-        await googleAuth(response.credential);
-      } catch (err: any) {
-        onError?.(err?.message || "Google authentication failed");
-      } finally {
-        setIsLoading(false);
+  // Persistent callback reference
+  useEffect(() => {
+    window.__googleGsiCallback = async (response: any) => {
+      if (response?.credential) {
+        try {
+          setIsLoading(true);
+          await googleAuth(response.credential);
+        } catch (err: any) {
+          onError?.(err?.message || "Google authentication failed");
+        } finally {
+          setIsLoading(false);
+        }
       }
-    }
-  };
+    };
+  }, [googleAuth, onError]);
 
   useEffect(() => {
     let isMounted = true;
@@ -60,12 +62,15 @@ export function GoogleSignInButton({
     const setupGoogle = () => {
       if (typeof window === "undefined" || !window.google?.accounts?.id) return;
       try {
-        window.google.accounts.id.initialize({
-          client_id: clientId,
-          callback: handleCredentialResponse,
-          auto_select: false,
-          cancel_on_tap_outside: true,
-        });
+        if (!window.__googleGsiInitialized) {
+          window.google.accounts.id.initialize({
+            client_id: clientId,
+            callback: (resp: any) => window.__googleGsiCallback?.(resp),
+            auto_select: false,
+            cancel_on_tap_outside: true,
+          });
+          window.__googleGsiInitialized = true;
+        }
 
         if (googleBtnContainerRef.current) {
           googleBtnContainerRef.current.innerHTML = "";
@@ -78,10 +83,8 @@ export function GoogleSignInButton({
             logo_alignment: "center",
           });
         }
-
-        if (isMounted) setIsGsiLoaded(true);
       } catch (err) {
-        console.warn("Google GSI initialization notice:", err);
+        console.warn("Google GSI setup notice:", err);
       }
     };
 
@@ -128,46 +131,21 @@ export function GoogleSignInButton({
     }
   };
 
-  const handleButtonClick = () => {
-    // If the official button iframe is rendered inside, try triggering prompt or show modal
-    if (window.google?.accounts?.id) {
-      try {
-        window.google.accounts.id.prompt((notification: any) => {
-          if (
-            notification?.isNotDisplayed?.() ||
-            notification?.isSkippedMoment?.() ||
-            notification?.isDismissedMoment?.()
-          ) {
-            setShowDemoModal(true);
-          }
-        });
-        // Give 600ms: if FedCM doesn't pop or is blocked on localhost, show the modal
-        setTimeout(() => {
-          setShowDemoModal(true);
-        }, 600);
-      } catch {
-        setShowDemoModal(true);
-      }
-    } else {
-      setShowDemoModal(true);
-    }
-  };
-
   return (
     <div className="w-full space-y-2.5">
-      {/* Official Google GSI Rendered Button Container */}
+      {/* Official Google GSI Rendered Button (Popup window, no FedCM issues) */}
       <div className="flex justify-center w-full min-h-[42px] overflow-hidden">
         <div ref={googleBtnContainerRef} className="w-full flex justify-center" />
       </div>
 
-      {/* Fallback & Quick College Google Sign-In button */}
+      {/* Quick College Google Sign-In button (opens instant selection modal) */}
       <Button
         variant="outline"
         type="button"
         disabled={isLoading}
         isLoading={isLoading}
         className="w-full h-10 rounded-full border border-black/[0.1] bg-white hover:bg-neutral-50 text-neutral-800 text-xs font-medium transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer"
-        onClick={handleButtonClick}
+        onClick={() => setShowDemoModal(true)}
       >
         <svg className="h-4 w-4" viewBox="0 0 24 24">
           <path
@@ -209,7 +187,7 @@ export function GoogleSignInButton({
                 Sign In with Google
               </h3>
               <p className="text-xs text-[#86868B]">
-                Choose a pre-configured student or enter your college Google email
+                Choose a pre-configured student or enter any Google email
               </p>
             </div>
 
@@ -255,7 +233,7 @@ export function GoogleSignInButton({
             <div className="space-y-2.5">
               <Input
                 type="email"
-                placeholder="your.name@ldce.ac.in"
+                placeholder="e.g. patelgaming4766@gmail.com"
                 value={demoEmail}
                 onChange={(e) => setDemoEmail(e.target.value)}
                 className="rounded-xl text-xs h-10"
