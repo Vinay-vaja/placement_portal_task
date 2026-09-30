@@ -103,7 +103,7 @@ export default function StudentApplicationsPage() {
                     <tr key={app.id} className="hover:bg-[#F5F5F7]/40 transition-colors">
                       <td className="py-3.5 px-4 font-medium text-[#1D1D1F] flex items-center gap-2">
                         <Building2 className="h-4 w-4 text-[#0071E3]" />
-                        {app.drive?.companyName || "Company"}
+                        {app.drive?.company?.name || app.drive?.companyName || "Company"}
                       </td>
                       <td className="py-3.5 px-4 text-[#86868B]">
                         {app.drive?.jobRole || "Software Engineer"}
@@ -112,7 +112,7 @@ export default function StudentApplicationsPage() {
                         {app.drive?.ctcPackage || "Confidential"}
                       </td>
                       <td className="py-3.5 px-4 text-[#86868B]">
-                        {new Date(app.createdAt).toLocaleDateString()}
+                        {new Date(app.appliedAt || app.createdAt).toLocaleDateString()}
                       </td>
                       <td className="py-3.5 px-4 text-right">
                         {app.status === "SELECTED" ? (
