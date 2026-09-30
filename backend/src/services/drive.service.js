@@ -5,12 +5,16 @@ import { parsePagination, buildPaginatedResponse } from "../utils/pagination.js"
  * Create a new recruitment drive (TPO only)
  */
 export const createDrive = async (data) => {
-  const {
+  let {
     companyId,
+    companyName,
     role,
+    jobRole,
     description,
     ctc,
+    minLpa,
     ctcMax,
+    maxLpa,
     location,
     minTenthPercentage,
     minTwelfthPercentage,
@@ -18,40 +22,92 @@ export const createDrive = async (data) => {
     minCpi,
     allowedStudentType,
     allowedBranches,
+    eligibleBranches,
     backlogsAllowed,
     applicationDeadline,
+    deadline,
     status,
     maxSelectionsPerStudent,
     tpoAllowMultiple,
     roundDetails,
   } = data;
 
+  // Resolve company: either by companyId or by companyName
+  let resolvedCompanyId = companyId;
+  const logoUrl = (data.companyLogo || data.imageUrl || data.companyImageUrl || "").trim() || null;
+
+  if (!resolvedCompanyId && companyName) {
+    const trimmedName = companyName.trim();
+    let company = await prisma.company.findFirst({
+      where: { name: { equals: trimmedName, mode: "insensitive" } },
+    });
+    if (!company) {
+      company = await prisma.company.create({
+        data: { name: trimmedName, imageUrl: logoUrl },
+      });
+    } else if (logoUrl && !company.imageUrl) {
+      company = await prisma.company.update({
+        where: { id: company.id },
+        data: { imageUrl: logoUrl },
+      });
+    }
+    resolvedCompanyId = company.id;
+  } else if (resolvedCompanyId && logoUrl) {
+    await prisma.company.update({
+      where: { id: resolvedCompanyId },
+      data: { imageUrl: logoUrl },
+    });
+  }
+
+  if (!resolvedCompanyId) {
+    const error = new Error("Company ID or valid Company Name is required");
+    error.statusCode = 400;
+    throw error;
+  }
+
   // Verify company exists
-  const company = await prisma.company.findUnique({ where: { id: companyId } });
+  const company = await prisma.company.findUnique({ where: { id: resolvedCompanyId } });
   if (!company) {
     const error = new Error("Company not found");
     error.statusCode = 404;
     throw error;
   }
 
+  const finalRole = (role || jobRole || "").trim();
+  const finalCtc = ctc !== undefined && ctc !== null ? Number(ctc) : Number(minLpa);
+  const finalCtcMax = ctcMax !== undefined && ctcMax !== null && ctcMax !== ""
+    ? Number(ctcMax)
+    : (maxLpa !== undefined && maxLpa !== null && maxLpa !== "" ? Number(maxLpa) : null);
+  const finalBranches = allowedBranches || eligibleBranches || [];
+  const finalDeadline = applicationDeadline || deadline;
+
+  // Handle optional brochure link
+  let finalDescription = description ?? null;
+  const brochure = (data.brochureUrl || data.brochureLink || "").trim();
+  if (brochure) {
+    finalDescription = finalDescription
+      ? `${finalDescription}\n\n📄 Company Brochure & Documents: ${brochure}`
+      : `📄 Company Brochure & Documents: ${brochure}`;
+  }
+
   const drive = await prisma.recruitmentDrive.create({
     data: {
-      companyId,
-      role,
-      description: description ?? null,
-      ctc,
-      ctcMax: ctcMax ?? null,
+      companyId: resolvedCompanyId,
+      role: finalRole,
+      description: finalDescription,
+      ctc: finalCtc,
+      ctcMax: finalCtcMax,
       location: location ?? null,
-      minTenthPercentage: minTenthPercentage ?? null,
-      minTwelfthPercentage: minTwelfthPercentage ?? null,
-      minCgpa: minCgpa ?? null,
-      minCpi: minCpi ?? null,
+      minTenthPercentage: minTenthPercentage !== undefined && minTenthPercentage !== null && minTenthPercentage !== "" ? Number(minTenthPercentage) : null,
+      minTwelfthPercentage: minTwelfthPercentage !== undefined && minTwelfthPercentage !== null && minTwelfthPercentage !== "" ? Number(minTwelfthPercentage) : null,
+      minCgpa: minCgpa !== undefined && minCgpa !== null && minCgpa !== "" ? Number(minCgpa) : null,
+      minCpi: minCpi !== undefined && minCpi !== null && minCpi !== "" ? Number(minCpi) : null,
       allowedStudentType: allowedStudentType || "ALL",
-      allowedBranches: allowedBranches || [],
+      allowedBranches: finalBranches,
       backlogsAllowed: backlogsAllowed ?? false,
-      applicationDeadline: applicationDeadline ? new Date(applicationDeadline) : null,
+      applicationDeadline: finalDeadline ? new Date(finalDeadline) : null,
       status: status || "ACTIVE",
-      maxSelectionsPerStudent: maxSelectionsPerStudent ?? 1,
+      maxSelectionsPerStudent: maxSelectionsPerStudent ? Number(maxSelectionsPerStudent) : 1,
       tpoAllowMultiple: tpoAllowMultiple ?? false,
       roundDetails: roundDetails ?? null,
     },

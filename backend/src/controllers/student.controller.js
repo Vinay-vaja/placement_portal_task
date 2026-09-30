@@ -80,9 +80,7 @@ export const updateProfile = async (req, res, next) => {
  */
 export const getApplications = async (req, res, next) => {
   try {
-    const { default: applicationService } = await import(
-      "../services/application.service.js"
-    );
+    const applicationService = await import("../services/application.service.js");
     const result = await applicationService.getStudentApplications(
       req.user.userId,
       req.query

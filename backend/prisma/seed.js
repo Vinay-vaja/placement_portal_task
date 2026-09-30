@@ -22,29 +22,25 @@ async function main() {
   // ============================
   // 1. Create Central TPO account
   // ============================
-  const existingTpo = await prisma.user.findUnique({
+  const passwordHash = await bcrypt.hash(tpoPassword, 12);
+  const tpo = await prisma.user.upsert({
     where: { email: tpoEmail },
+    update: {
+      passwordHash,
+      role: "CENTRAL_TPO",
+    },
+    create: {
+      email: tpoEmail,
+      passwordHash,
+      role: "CENTRAL_TPO",
+      authProvider: "LOCAL",
+    },
   });
 
-  if (existingTpo) {
-    console.log(`TPO account already exists: ${tpoEmail}`);
-  } else {
-    const passwordHash = await bcrypt.hash(tpoPassword, 12);
-
-    const tpo = await prisma.user.create({
-      data: {
-        email: tpoEmail,
-        passwordHash,
-        role: "CENTRAL_TPO",
-        authProvider: "LOCAL",
-      },
-    });
-
-    console.log(`Central TPO account created:`);
-    console.log(`   Email: ${tpo.email}`);
-    console.log(`   Role: ${tpo.role}`);
-    console.log(`   ID: ${tpo.id}`);
-  }
+  console.log(`Central TPO account ensured:`);
+  console.log(`   Email: ${tpo.email}`);
+  console.log(`   Role: ${tpo.role}`);
+  console.log(`   ID: ${tpo.id}`);
 
   // ============================
   // 2. Create default TPO settings

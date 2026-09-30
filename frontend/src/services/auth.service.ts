@@ -34,5 +34,27 @@ export const authService = {
   googleAuth: async (idToken: string): Promise<ApiResponse<AuthResponseData>> => {
     return apiClient.post<ApiResponse<AuthResponseData>>("/auth/google", { idToken });
   },
+
+  forgotPassword: async (email: string): Promise<ApiResponse<{ email: string; message: string }>> => {
+    return apiClient.post<ApiResponse<{ email: string; message: string }>>("/auth/forgot-password", { email });
+  },
+
+  verifyOtp: async (
+    email: string,
+    otp: string
+  ): Promise<ApiResponse<{ email: string; resetToken: string; message: string }>> => {
+    return apiClient.post<ApiResponse<{ email: string; resetToken: string; message: string }>>(
+      "/auth/verify-otp",
+      { email, otp }
+    );
+  },
+
+  resetPassword: async (payload: {
+    email: string;
+    resetToken: string;
+    newPassword: string;
+  }): Promise<ApiResponse<{ message: string }>> => {
+    return apiClient.post<ApiResponse<{ message: string }>>("/auth/reset-password", payload);
+  },
 };
 

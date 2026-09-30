@@ -119,12 +119,17 @@ export const getDashboardStats = async () => {
       if (!companyMap[companyName]) {
         companyMap[companyName] = { totalPackage: 0, count: 0, students: [] };
       }
-      companyMap[companyName].totalPackage += student.currentPackageLpa;
+      const offerPackage =
+        app.drive.ctcMax !== null && app.drive.ctcMax !== undefined
+          ? (app.drive.ctc + app.drive.ctcMax) / 2
+          : app.drive.ctc;
+
+      companyMap[companyName].totalPackage += offerPackage;
       companyMap[companyName].count += 1;
       companyMap[companyName].students.push({
         name: student.fullName,
         role: app.drive.role,
-        package: student.currentPackageLpa,
+        package: offerPackage,
       });
     });
   });
@@ -179,6 +184,27 @@ export const getDashboardStats = async () => {
       : 0;
 
   return {
+    // Top-level aliases for direct access
+    totalStudents,
+    verifiedStudents,
+    pendingVerification: pendingStudents,
+    rejectedStudents,
+    placedStudents,
+    totalPlaced: placedStudents,
+    dismissedStudents,
+    activeDrives,
+    totalCompanies,
+    companiesCount: totalCompanies,
+    totalApplications,
+    attendanceRate,
+    highestPackage: packageStats.highest,
+    lowestPackage: packageStats.lowest,
+    averagePackage: packageStats.average,
+    medianPackage: packageStats.median,
+    placementPercentage: placementRate,
+    placementRate,
+
+    // Rich nested structures
     students: {
       total: totalStudents,
       verified: verifiedStudents,
@@ -204,7 +230,6 @@ export const getDashboardStats = async () => {
       companyWise,
       branchWise,
     },
-    placementRate,
   };
 };
 

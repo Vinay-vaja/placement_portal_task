@@ -24,13 +24,17 @@ export default function StudentApplicationsPage() {
     try {
       setIsLoading(true);
       const res = await studentService.getApplications();
-      if (res.data) {
-        setApplications(res.data);
+      const raw = res.data as any;
+      if (Array.isArray(raw)) {
+        setApplications(raw);
+      } else if (raw?.data && Array.isArray(raw.data)) {
+        setApplications(raw.data);
       } else {
         setApplications([]);
       }
     } catch (err: unknown) {
       setErrorMessage((err as Error)?.message || "Failed to load application history");
+      setApplications([]);
     } finally {
       setIsLoading(false);
     }
@@ -40,83 +44,92 @@ export default function StudentApplicationsPage() {
     fetchApplications();
   }, []);
 
+  const appList = Array.isArray(applications) ? applications : [];
+
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">
-          Application History & Status Tracker
-        </h1>
-        <p className="text-xs text-slate-500 font-medium mt-1">
-          Track your active campus placement applications, shortlists, and offer selections.
-        </p>
+    <div className="space-y-6 max-w-6xl mx-auto py-4 px-2 sm:px-4">
+      {/* Header Banner */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 rounded-3xl bg-white border border-black/[0.08] p-6 sm:p-8 shadow-[0_4px_24px_rgba(0,0,0,0.03)]">
+        <div className="space-y-1">
+          <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-[#1D1D1F]">
+            My Applications
+          </h1>
+          <p className="text-xs sm:text-sm text-[#86868B]">
+            Track status updates for campus placement drives and company shortlists.
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-[#0071E3]/10 text-[#0071E3] border border-[#0071E3]/20">
+            {appList.length} Submissions
+          </span>
+        </div>
       </div>
 
       {errorMessage && (
-        <div className="flex items-center gap-2 rounded-xl bg-red-50 p-4 text-xs font-semibold text-red-600 border border-red-200">
+        <div className="flex items-center gap-2.5 rounded-2xl bg-red-50 p-4 text-xs font-medium text-[#FF3B30] border border-[#FF3B30]/20">
           <AlertCircle className="h-4 w-4 flex-shrink-0" />
           <span>{errorMessage}</span>
         </div>
       )}
 
-      <Card className="border border-slate-200 bg-white shadow-sm overflow-hidden">
+      <Card className="rounded-3xl border border-black/[0.08] bg-white shadow-[0_2px_16px_rgba(0,0,0,0.03)] overflow-hidden">
         <CardContent className="p-0">
           {isLoading ? (
-            <div className="p-12 text-center text-xs text-slate-500 font-medium">
+            <div className="p-12 text-center text-xs text-[#86868B]">
               Loading application history...
             </div>
-          ) : applications.length === 0 ? (
+          ) : appList.length === 0 ? (
             <div className="p-12 text-center space-y-3">
-              <FileCheck className="mx-auto h-12 w-12 text-slate-300" />
-              <h3 className="text-sm font-bold text-slate-800">No Applications Submitted Yet</h3>
-              <p className="text-xs text-slate-500 max-w-sm mx-auto">
+              <FileCheck className="mx-auto h-10 w-10 text-[#A1A1A6]" />
+              <h3 className="text-sm font-semibold text-[#1D1D1F]">No Applications Submitted Yet</h3>
+              <p className="text-xs text-[#86868B] max-w-sm mx-auto">
                 Visit the &quot;Campus Drives&quot; tab to explore open recruitment opportunities and apply.
               </p>
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
+              <table className="w-full text-left border-collapse text-xs">
                 <thead>
-                  <tr className="border-b border-slate-200 bg-slate-50/80 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                  <tr className="border-b border-black/[0.06] bg-[#F5F5F7]/60 text-[11px] font-medium text-[#86868B]">
                     <th className="py-3.5 px-4">Company Name</th>
                     <th className="py-3.5 px-4">Job Role</th>
                     <th className="py-3.5 px-4">CTC Package</th>
                     <th className="py-3.5 px-4">Application Date</th>
-                    <th className="py-3.5 px-4">Current Status</th>
+                    <th className="py-3.5 px-4 text-right">Status</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 text-xs text-slate-700">
-                  {applications.map((app) => (
-                    <tr key={app.id} className="hover:bg-slate-50/60 transition-colors">
-                      <td className="py-3.5 px-4 font-bold text-slate-900 flex items-center gap-2">
-                        <Building2 className="h-4 w-4 text-blue-600" />
-                        {app.drive?.companyName || "Company"}
+                <tbody className="divide-y divide-black/[0.04] text-xs text-[#1D1D1F]">
+                  {appList.map((app) => (
+                    <tr key={app.id} className="hover:bg-[#F5F5F7]/40 transition-colors">
+                      <td className="py-3.5 px-4 font-medium text-[#1D1D1F] flex items-center gap-2">
+                        <Building2 className="h-4 w-4 text-[#0071E3]" />
+                        {app.drive?.company?.name || app.drive?.companyName || "Company"}
                       </td>
-                      <td className="py-3.5 px-4 text-slate-600 font-semibold">
+                      <td className="py-3.5 px-4 text-[#86868B]">
                         {app.drive?.jobRole || "Software Engineer"}
                       </td>
-                      <td className="py-3.5 px-4 font-bold text-slate-900">
+                      <td className="py-3.5 px-4 font-semibold text-[#1D1D1F]">
                         {app.drive?.ctcPackage || "Confidential"}
                       </td>
-                      <td className="py-3.5 px-4 text-slate-500">
-                        {app.createdAt ? new Date(app.createdAt).toLocaleDateString() : "Recently"}
+                      <td className="py-3.5 px-4 text-[#86868B]">
+                        {new Date(app.appliedAt || app.createdAt).toLocaleDateString()}
                       </td>
-                      <td className="py-3.5 px-4">
+                      <td className="py-3.5 px-4 text-right">
                         {app.status === "SELECTED" ? (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-emerald-700 border border-emerald-200">
-                            <Award className="h-3.5 w-3.5 text-emerald-600" /> Selected / Offer Offered
-                          </span>
-                        ) : app.status === "SHORTLISTED" ? (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2.5 py-1 text-[11px] font-bold text-blue-700 border border-blue-200">
-                            <CheckCircle2 className="h-3.5 w-3.5 text-blue-600" /> Shortlisted for Interview
+                          <span className="inline-flex items-center gap-1 rounded-full bg-[#34C759]/10 px-2.5 py-0.5 text-[11px] font-medium text-[#28A745] border border-[#34C759]/20">
+                            <Award className="h-3.5 w-3.5 text-[#28A745]" /> Selected
                           </span>
                         ) : app.status === "REJECTED" ? (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-red-50 px-2.5 py-1 text-[11px] font-bold text-red-700 border border-red-200">
-                            <XCircle className="h-3.5 w-3.5 text-red-600" /> Not Shortlisted
+                          <span className="inline-flex items-center gap-1 rounded-full bg-[#FF3B30]/10 px-2.5 py-0.5 text-[11px] font-medium text-[#FF3B30] border border-[#FF3B30]/20">
+                            <XCircle className="h-3.5 w-3.5 text-[#FF3B30]" /> Not Selected
+                          </span>
+                        ) : app.status === "SHORTLISTED" ? (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2.5 py-0.5 text-[11px] font-medium text-[#0071E3] border border-[#0071E3]/20">
+                            <CheckCircle2 className="h-3.5 w-3.5 text-[#0071E3]" /> Shortlisted
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-bold text-amber-700 border border-amber-200">
-                            <Clock className="h-3.5 w-3.5 text-amber-600" /> Application Under Review
+                          <span className="inline-flex items-center gap-1 rounded-full bg-[#FF9500]/10 px-2.5 py-0.5 text-[11px] font-medium text-[#D97706] border border-[#FF9500]/20">
+                            <Clock className="h-3.5 w-3.5 text-[#D97706]" /> Under Review
                           </span>
                         )}
                       </td>

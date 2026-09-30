@@ -1,5 +1,16 @@
 import { apiClient } from "@/lib/api-client";
-import { ApiResponse, PaginatedResponse, StudentFilterParams, StudentProfile, TpoAnalytics } from "@/types";
+import { env } from "@/config/env";
+import { useAuthStore } from "@/store/use-auth-store";
+import {
+  AnnouncementPayload,
+  ApiResponse,
+  Application,
+  EmailLog,
+  PaginatedResponse,
+  StudentFilterParams,
+  StudentProfile,
+  TpoAnalytics,
+} from "@/types";
 
 export const tpoService = {
   getDashboardStats: async (): Promise<ApiResponse<TpoAnalytics>> => {
@@ -14,24 +25,27 @@ export const tpoService = {
 
   verifyStudent: async (
     studentId: string,
-    status: "VERIFIED" | "REJECTED",
+    status: "PENDING" | "VERIFIED" | "REJECTED",
     rejectionReason?: string
   ): Promise<ApiResponse<StudentProfile>> => {
     return apiClient.patch<ApiResponse<StudentProfile>>(`/tpo/students/${studentId}/verify`, {
+      verificationStatus: status,
       status,
       rejectionReason,
     });
   },
 
-  toggleDismissStudent: async (
+  dismissStudent: async (
     studentId: string,
-    isDismissed: boolean,
-    dismissalReason?: string
+    reason?: string
   ): Promise<ApiResponse<StudentProfile>> => {
     return apiClient.patch<ApiResponse<StudentProfile>>(`/tpo/students/${studentId}/dismiss`, {
-      isDismissed,
-      dismissalReason,
+      reason,
     });
+  },
+
+  reinstateStudent: async (studentId: string): Promise<ApiResponse<StudentProfile>> => {
+    return apiClient.patch<ApiResponse<StudentProfile>>(`/tpo/students/${studentId}/reinstate`);
   },
 
   markAttendance: async (
@@ -44,11 +58,132 @@ export const tpoService = {
     );
   },
 
-  notifyDriveApplicants: async (driveId: string): Promise<ApiResponse<{ count: number }>> => {
-    return apiClient.post<ApiResponse<{ count: number }>>(`/tpo/drives/${driveId}/notify`);
+  // Email notifications
+  notifyDriveApplicants: async (
+    driveId: string,
+    customMessage?: string
+  ): Promise<ApiResponse<{ count: number; message: string }>> => {
+    return apiClient.post<ApiResponse<{ count: number; message: string }>>(
+      `/tpo/drives/${driveId}/notify`,
+      { customMessage }
+    );
+  },
+
+  refactorAnnouncement: async (payload: {
+    rawNotes: string;
+    templatePreset?: string;
+    customApiKey?: string;
+    customModel?: string;
+  }): Promise<
+    ApiResponse<{
+      subject: string;
+      htmlBody: string;
+      modelUsed: string;
+    }>
+  > => {
+    return apiClient.post<
+      ApiResponse<{
+        subject: string;
+        htmlBody: string;
+        modelUsed: string;
+      }>
+    >("/tpo/announcements/refactor", payload);
+  },
+
+  sendAnnouncement: async (
+    payload: AnnouncementPayload
+  ): Promise<ApiResponse<{ count: number; message: string }>> => {
+    return apiClient.post<ApiResponse<{ count: number; message: string }>>(
+      "/tpo/announcements/send",
+      payload
+    );
+  },
+
+  getEmailLogs: async (params?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+  }): Promise<ApiResponse<PaginatedResponse<EmailLog>>> => {
+    return apiClient.get<ApiResponse<PaginatedResponse<EmailLog>>>("/tpo/emails", {
+      params: params as Record<string, string | number | boolean | undefined>,
+    });
+  },
+
+  getApplications: async (params?: {
+    page?: number;
+    limit?: number;
+    driveId?: string;
+    status?: string;
+    studentId?: string;
+  }): Promise<ApiResponse<PaginatedResponse<Application>>> => {
+    return apiClient.get<ApiResponse<PaginatedResponse<Application>>>("/tpo/applications", {
+      params: params as Record<string, string | number | boolean | undefined>,
+    });
+  },
+
+  updateApplicationStatus: async (
+    applicationId: string,
+    status: "APPLIED" | "SHORTLISTED" | "REJECTED" | "SELECTED"
+  ): Promise<ApiResponse<Application>> => {
+    return apiClient.patch<ApiResponse<Application>>(`/applications/${applicationId}/status`, {
+      status,
+    });
+  },
+
+  // Export functions with automatic browser download
+  downloadExport: async (endpoint: string, filename: string): Promise<void> => {
+    const token = typeof window !== "undefined" ? useAuthStore.getState().token : null;
+    const baseUrl = env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
+    const fullUrl = `${baseUrl}${endpoint.startsWith("/") ? endpoint : `/${endpoint}`}`;
+
+    const res = await fetch(fullUrl, {
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+    });
+
+    if (!res.ok) {
+      throw new Error(`Failed to export data: ${res.statusText}`);
+    }
+
+    const blob = await res.blob();
+    const downloadUrl = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = downloadUrl;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    window.URL.revokeObjectURL(downloadUrl);
+    document.body.removeChild(link);
+  },
+
+  exportStudents: async (
+    format: "csv" | "xlsx" = "csv",
+    filters?: { search?: string; branch?: string; verificationStatus?: string }
+  ): Promise<void> => {
+    const dateStr = new Date().toISOString().split("T")[0];
+    const queryParams = new URLSearchParams();
+    queryParams.set("format", format);
+    if (filters?.search) queryParams.set("search", filters.search);
+    if (filters?.branch && filters.branch !== "ALL") queryParams.set("branch", filters.branch);
+    if (filters?.verificationStatus && filters.verificationStatus !== "ALL") {
+      queryParams.set("verificationStatus", filters.verificationStatus);
+    }
+    await tpoService.downloadExport(
+      `/tpo/students/export?${queryParams.toString()}`,
+      `ldce_students_${dateStr}.${format}`
+    );
+  },
+
+  exportDriveApplicants: async (driveId: string, format: "csv" | "xlsx" = "csv"): Promise<void> => {
+    await tpoService.downloadExport(
+      `/tpo/drives/${driveId}/export?format=${format}`,
+      `drive_${driveId}_applicants.${format}`
+    );
   },
 
   exportStudentsUrl: (format: "csv" | "xlsx" = "csv") => {
-    return `/api/tpo/students/export?format=${format}`;
+    const token = typeof window !== "undefined" ? useAuthStore.getState().token : "";
+    return `/api/tpo/students/export?format=${format}${token ? `&token=${token}` : ""}`;
   },
 };

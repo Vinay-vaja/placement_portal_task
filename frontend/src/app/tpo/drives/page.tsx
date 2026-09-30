@@ -19,27 +19,55 @@ import {
   XCircle,
   X,
   Users,
+  Mail,
+  Download,
+  FileSpreadsheet,
+  UserCheck,
+  Check,
+  FileText,
+  ExternalLink,
+  ImageIcon,
 } from "lucide-react";
 
-const BRANCHES = ["CE", "AIML", "IT", "EC", "EE", "CIVIL", "CHEMICAL", "MECHANICAL"];
+import { ENGINEERING_BRANCHES, BranchCode } from "@/config/constants";
+import { tpoService } from "@/services/tpo.service";
+
+const ALL_BRANCHES: BranchCode[] = ENGINEERING_BRANCHES.map((b) => b.code);
 
 export default function TPODrivesPage() {
   const [drives, setDrives] = useState<RecruitmentDrive[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  // Drive action states
+  const [notifyingDriveId, setNotifyingDriveId] = useState<string | null>(null);
+  const [exportingDriveId, setExportingDriveId] = useState<string | null>(null);
+
+  // Applicants & Attendance Modal State
+  const [applicantsModalOpen, setApplicantsModalOpen] = useState(false);
+  const [activeDriveForApplicants, setActiveDriveForApplicants] = useState<RecruitmentDrive | null>(null);
+  const [driveApplicants, setDriveApplicants] = useState<any[]>([]);
+  const [loadingApplicants, setLoadingApplicants] = useState(false);
+  const [statusUpdatingId, setStatusUpdatingId] = useState<string | null>(null);
+
   // New Drive Modal State
   const [modalOpen, setModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     companyName: "",
+    companyLogo: "",
     jobRole: "",
-    ctcPackage: "",
+    minLpa: "",
+    maxLpa: "",
     location: "",
-    minCpi: 6.0,
+    minCpi: "6.0",
+    minTenthPercentage: "60.0",
+    minTwelfthPercentage: "60.0",
+    allowedStudentType: "ALL" as "ALL" | "REGULAR" | "D2D",
     deadline: "",
     description: "",
-    eligibleBranches: ["CE", "AIML", "IT"] as string[],
+    brochureUrl: "",
+    eligibleBranches: ALL_BRANCHES as BranchCode[],
   });
 
   const fetchDrives = async () => {
@@ -58,11 +86,88 @@ export default function TPODrivesPage() {
     }
   };
 
+  const handleNotifyDrive = async (driveId: string) => {
+    try {
+      setNotifyingDriveId(driveId);
+      const res = await tpoService.notifyDriveApplicants(driveId);
+      alert(res.data?.message || "Eligible students have been notified via email!");
+    } catch (err: unknown) {
+      alert((err as Error)?.message || "Failed to send drive notifications");
+    } finally {
+      setNotifyingDriveId(null);
+    }
+  };
+
+  const handleExportDriveApplicants = async (driveId: string, format: "csv" | "xlsx") => {
+    try {
+      setExportingDriveId(`${driveId}-${format}`);
+      await tpoService.exportDriveApplicants(driveId, format);
+    } catch (err: unknown) {
+      alert((err as Error)?.message || `Failed to export applicants as ${format.toUpperCase()}`);
+    } finally {
+      setExportingDriveId(null);
+    }
+  };
+
+  const handleOpenApplicants = async (drive: RecruitmentDrive) => {
+    setActiveDriveForApplicants(drive);
+    setApplicantsModalOpen(true);
+    try {
+      setLoadingApplicants(true);
+      const res = await tpoService.getApplications({ driveId: drive.id, limit: 100 });
+      if (res.data?.data) {
+        setDriveApplicants(res.data.data);
+      } else {
+        setDriveApplicants([]);
+      }
+    } catch (err: unknown) {
+      alert((err as Error)?.message || "Failed to load drive applicants");
+    } finally {
+      setLoadingApplicants(false);
+    }
+  };
+
+  const handleUpdateStatus = async (
+    applicationId: string,
+    status: "APPLIED" | "SHORTLISTED" | "REJECTED" | "SELECTED"
+  ) => {
+    try {
+      setStatusUpdatingId(applicationId);
+      await tpoService.updateApplicationStatus(applicationId, status);
+      // Refresh local list
+      setDriveApplicants((prev) =>
+        prev.map((app) => (app.id === applicationId ? { ...app, status } : app))
+      );
+    } catch (err: unknown) {
+      alert((err as Error)?.message || "Failed to update application status");
+    } finally {
+      setStatusUpdatingId(null);
+    }
+  };
+
+  const handleMarkAttendance = async (applicationId: string, isPresent: boolean) => {
+    try {
+      setStatusUpdatingId(applicationId);
+      await tpoService.markAttendance(applicationId, isPresent);
+      setDriveApplicants((prev) =>
+        prev.map((app) =>
+          app.id === applicationId
+            ? { ...app, attendanceMarked: true, isPresent }
+            : app
+        )
+      );
+    } catch (err: unknown) {
+      alert((err as Error)?.message || "Failed to mark attendance");
+    } finally {
+      setStatusUpdatingId(null);
+    }
+  };
+
   useEffect(() => {
     fetchDrives();
   }, []);
 
-  const handleBranchToggle = (branch: string) => {
+  const handleBranchToggle = (branch: BranchCode) => {
     setFormData((prev) => ({
       ...prev,
       eligibleBranches: prev.eligibleBranches.includes(branch)
@@ -71,21 +176,71 @@ export default function TPODrivesPage() {
     }));
   };
 
+  const handleSelectAllBranches = () => {
+    setFormData((prev) => ({
+      ...prev,
+      eligibleBranches: prev.eligibleBranches.length === ALL_BRANCHES.length ? [] : ALL_BRANCHES,
+    }));
+  };
+
   const handleCreateDrive = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       setIsSubmitting(true);
+      if (!formData.companyName.trim()) {
+        alert("Please enter a company name.");
+        return;
+      }
+      if (!formData.jobRole.trim()) {
+        alert("Please enter a job role.");
+        return;
+      }
+      const minLpaVal = parseFloat(formData.minLpa);
+      if (isNaN(minLpaVal) || minLpaVal <= 0) {
+        alert("Please enter a valid Min LPA (e.g. 6.5).");
+        return;
+      }
+      const maxLpaVal = formData.maxLpa.trim() ? parseFloat(formData.maxLpa) : null;
+      if (maxLpaVal !== null && (isNaN(maxLpaVal) || maxLpaVal < minLpaVal)) {
+        alert("Max LPA must be greater than or equal to Min LPA.");
+        return;
+      }
+
       await driveService.createDrive({
-        companyName: formData.companyName,
-        jobRole: formData.jobRole,
-        ctcPackage: formData.ctcPackage,
-        location: formData.location,
-        minCpi: Number(formData.minCpi),
-        deadline: formData.deadline,
-        description: formData.description,
-        eligibleBranches: formData.eligibleBranches as any,
+        companyName: formData.companyName.trim(),
+        companyLogo: formData.companyLogo.trim() || undefined,
+        role: formData.jobRole.trim(),
+        ctc: minLpaVal,
+        ctcMax: maxLpaVal ?? undefined,
+        location: formData.location.trim() || undefined,
+        minCpi: formData.minCpi.trim() ? parseFloat(formData.minCpi) : undefined,
+        minTenthPercentage: formData.minTenthPercentage.trim() ? parseFloat(formData.minTenthPercentage) : undefined,
+        minTwelfthPercentage: formData.minTwelfthPercentage.trim() ? parseFloat(formData.minTwelfthPercentage) : undefined,
+        allowedStudentType: formData.allowedStudentType,
+        applicationDeadline: formData.deadline ? new Date(formData.deadline).toISOString() : undefined,
+        description: formData.description.trim() || undefined,
+        brochureUrl: formData.brochureUrl.trim() || undefined,
+        allowedBranches: formData.eligibleBranches,
       });
+
       setModalOpen(false);
+      // Reset form
+      setFormData({
+        companyName: "",
+        companyLogo: "",
+        jobRole: "",
+        minLpa: "",
+        maxLpa: "",
+        location: "",
+        minCpi: "6.0",
+        minTenthPercentage: "60.0",
+        minTwelfthPercentage: "60.0",
+        allowedStudentType: "ALL",
+        deadline: "",
+        description: "",
+        brochureUrl: "",
+        eligibleBranches: ALL_BRANCHES,
+      });
       fetchDrives();
     } catch (err: unknown) {
       alert((err as Error)?.message || "Failed to create recruitment drive");
@@ -144,74 +299,170 @@ export default function TPODrivesPage() {
         </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {drives.map((drive) => (
-            <Card key={drive.id} className="border border-slate-200 bg-white shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between">
-              <CardHeader className="pb-3">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600 font-bold border border-blue-100">
-                      <Building2 className="h-5 w-5" />
+          {drives.map((drive) => {
+            const companyTitle = drive.company?.name || (drive as any).companyName || "Unknown Company";
+            const jobTitle = drive.role || (drive as any).jobRole || "Job Role";
+            const ctcDisplay = drive.ctcMax
+              ? `₹${drive.ctc} - ${drive.ctcMax} LPA`
+              : drive.ctc
+              ? `₹${drive.ctc} LPA`
+              : (drive as any).ctcPackage || "Confidential";
+            const deadlineDisplay = drive.applicationDeadline
+              ? new Date(drive.applicationDeadline).toLocaleDateString()
+              : drive.deadline
+              ? new Date(drive.deadline).toLocaleDateString()
+              : "Open";
+            const branchesList = drive.allowedBranches || (drive as any).eligibleBranches || [];
+            const companyLogo = drive.company?.imageUrl || (drive as any).companyLogo;
+            const brochureMatch = (drive.description || "").match(/Brochure:\s*(https?:\/\/[^\s]+)/i);
+            const brochureUrl = (drive as any).brochureUrl || (brochureMatch ? brochureMatch[1] : null);
+
+            return (
+              <Card key={drive.id} className="border border-slate-200 bg-white shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between">
+                <CardHeader className="pb-3">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-3">
+                      {companyLogo ? (
+                        <img
+                          src={companyLogo}
+                          alt={companyTitle}
+                          className="h-10 w-10 rounded-xl object-contain border border-slate-200 bg-white p-1 shrink-0"
+                          onError={(e) => {
+                            (e.target as HTMLElement).style.display = 'none';
+                          }}
+                        />
+                      ) : (
+                        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600 font-bold border border-blue-100 shrink-0">
+                          <Building2 className="h-5 w-5" />
+                        </div>
+                      )}
+                      <div className="min-w-0">
+                        <CardTitle className="text-base font-bold text-slate-900 truncate">
+                          {companyTitle}
+                        </CardTitle>
+                        <p className="text-xs font-semibold text-blue-600 truncate">{jobTitle}</p>
+                        {brochureUrl && (
+                          <a
+                            href={brochureUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-[11px] text-blue-600 hover:text-blue-800 font-medium underline mt-0.5"
+                          >
+                            <ExternalLink className="h-3 w-3" /> Brochure
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                    <Badge variant={drive.status === "ACTIVE" ? "success" : "secondary"}>
+                      {drive.status || "ACTIVE"}
+                    </Badge>
+                  </div>
+                </CardHeader>
+
+                <CardContent className="space-y-4 pt-1 text-xs">
+                  <div className="grid grid-cols-2 gap-2 bg-slate-50 p-3 rounded-xl border border-slate-100">
+                    <div>
+                      <span className="text-[10px] font-medium text-slate-400 block">Package (CTC)</span>
+                      <span className="font-bold text-slate-900">{ctcDisplay}</span>
                     </div>
                     <div>
-                      <CardTitle className="text-base font-bold text-slate-900">
-                        {drive.companyName}
-                      </CardTitle>
-                      <p className="text-xs font-semibold text-blue-600">{drive.jobRole}</p>
+                      <span className="text-[10px] font-medium text-slate-400 block">Min CPI Cutoff</span>
+                      <span className="font-bold text-blue-600">{drive.minCpi ? `${drive.minCpi} CPI` : "No Cutoff"}</span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] font-medium text-slate-400 block">Job Location</span>
+                      <span className="font-medium text-slate-700 truncate block">{drive.location || "On-site"}</span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] font-medium text-slate-400 block">Deadline</span>
+                      <span className="font-medium text-slate-700 block">{deadlineDisplay}</span>
                     </div>
                   </div>
-                  <Badge variant={drive.status === "ACTIVE" ? "success" : "secondary"}>
-                    {drive.status || "ACTIVE"}
-                  </Badge>
-                </div>
-              </CardHeader>
 
-              <CardContent className="space-y-4 pt-1 text-xs">
-                <div className="grid grid-cols-2 gap-2 bg-slate-50 p-3 rounded-xl border border-slate-100">
-                  <div>
-                    <span className="text-[10px] font-medium text-slate-400 block">Package (CTC)</span>
-                    <span className="font-bold text-slate-900">{drive.ctcPackage || "Confidential"}</span>
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase">Eligible Branches</span>
+                    <div className="flex flex-wrap gap-1 max-h-16 overflow-y-auto">
+                      {branchesList.length === 0 || branchesList.length === ALL_BRANCHES.length ? (
+                        <span className="rounded-md bg-blue-50 px-2 py-0.5 text-[10px] font-bold text-blue-700 border border-blue-200">
+                          All Engineering Branches
+                        </span>
+                      ) : (
+                        branchesList.map((b: string) => (
+                          <span
+                            key={b}
+                            className="rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-700 border border-slate-200"
+                          >
+                            {b}
+                          </span>
+                        ))
+                      )}
+                    </div>
                   </div>
-                  <div>
-                    <span className="text-[10px] font-medium text-slate-400 block">Min CPI Cutoff</span>
-                    <span className="font-bold text-blue-600">{drive.minCpi} CPI</span>
-                  </div>
-                  <div>
-                    <span className="text-[10px] font-medium text-slate-400 block">Job Location</span>
-                    <span className="font-medium text-slate-700 truncate block">{drive.location || "On-site"}</span>
-                  </div>
-                  <div>
-                    <span className="text-[10px] font-medium text-slate-400 block">Deadline</span>
-                    <span className="font-medium text-slate-700 block">
-                      {drive.deadline ? new Date(drive.deadline).toLocaleDateString() : "Open"}
-                    </span>
-                  </div>
-                </div>
+                </CardContent>
 
-                <div className="space-y-1">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase">Eligible Branches</span>
-                  <div className="flex flex-wrap gap-1">
-                    {drive.eligibleBranches?.map((b) => (
-                      <span
-                        key={b}
-                        className="rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-700 border border-slate-200"
-                      >
-                        {b}
-                      </span>
-                    ))}
+                <div className="p-3 border-t border-slate-100 bg-slate-50/70 rounded-b-xl flex flex-wrap items-center justify-between gap-1.5 text-xs">
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleNotifyDrive(drive.id)}
+                      disabled={notifyingDriveId === drive.id}
+                      className="h-7 text-[11px] px-2 gap-1 border-slate-200 text-blue-600 hover:bg-blue-50"
+                      title="Send email notification to all eligible students"
+                    >
+                      <Mail className="h-3.5 w-3.5" />
+                      {notifyingDriveId === drive.id ? "Sending..." : "Notify"}
+                    </Button>
+
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleExportDriveApplicants(drive.id, "csv")}
+                      disabled={exportingDriveId === `${drive.id}-csv`}
+                      className="h-7 text-[11px] px-2 gap-1 border-slate-200 text-emerald-600 hover:bg-emerald-50"
+                      title="Export applicants as CSV"
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                      {exportingDriveId === `${drive.id}-csv` ? "..." : "CSV"}
+                    </Button>
+
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleExportDriveApplicants(drive.id, "xlsx")}
+                      disabled={exportingDriveId === `${drive.id}-xlsx`}
+                      className="h-7 text-[11px] px-2 gap-1 border-slate-200 text-blue-600 hover:bg-blue-50"
+                      title="Export applicants as Excel"
+                    >
+                      <FileSpreadsheet className="h-3.5 w-3.5" />
+                      {exportingDriveId === `${drive.id}-xlsx` ? "..." : "XLSX"}
+                    </Button>
                   </div>
+
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={() => handleOpenApplicants(drive)}
+                    className="h-7 text-[11px] px-2.5 gap-1.5"
+                  >
+                    <Users className="h-3.5 w-3.5" /> Applicants
+                  </Button>
                 </div>
-              </CardContent>
-            </Card>
-          ))}
+              </Card>
+            );
+          })}
         </div>
       )}
 
       {/* Create Drive Modal */}
       {modalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs">
-          <div className="w-full max-w-xl max-h-[90vh] overflow-y-auto bg-white rounded-2xl shadow-2xl border border-slate-200 p-6 space-y-6">
+          <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-white rounded-2xl shadow-2xl border border-slate-200 p-6 space-y-6">
             <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-              <h3 className="text-lg font-bold text-slate-900">Post New Recruitment Drive</h3>
+              <div>
+                <h3 className="text-lg font-bold text-slate-900">Post New Recruitment Drive</h3>
+                <p className="text-xs text-slate-500">Configure salary package range, branch cutoffs, and deadlines.</p>
+              </div>
               <button
                 onClick={() => setModalOpen(false)}
                 className="rounded-lg p-1 text-slate-400 hover:bg-slate-100"
@@ -223,49 +474,147 @@ export default function TPODrivesPage() {
             <form onSubmit={handleCreateDrive} className="space-y-4 text-xs">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="font-semibold text-slate-700">Company Name</label>
+                  <label className="font-semibold text-slate-700">Company Name *</label>
                   <Input
                     required
                     type="text"
-                    placeholder="e.g. Tata Consultancy Services"
+                    placeholder="e.g. Google India / TCS / Infosys"
                     value={formData.companyName}
                     onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="font-semibold text-slate-700">Job Role / Designation</label>
+                  <label className="font-semibold text-slate-700">Job Role / Designation *</label>
                   <Input
                     required
                     type="text"
-                    placeholder="e.g. Software Engineer Trainee"
+                    placeholder="e.g. Associate Software Engineer"
                     value={formData.jobRole}
                     onChange={(e) => setFormData({ ...formData, jobRole: e.target.value })}
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Company Logo and Brochure / Documentation Link */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="font-semibold text-slate-700">CTC Package</label>
+                  <label className="font-semibold text-slate-700">Company Logo Image URL (Optional)</label>
                   <Input
-                    required
-                    type="text"
-                    placeholder="e.g. 7.5 LPA"
-                    value={formData.ctcPackage}
-                    onChange={(e) => setFormData({ ...formData, ctcPackage: e.target.value })}
+                    type="url"
+                    placeholder="https://example.com/logo.png"
+                    value={formData.companyLogo}
+                    onChange={(e) => setFormData({ ...formData, companyLogo: e.target.value })}
                   />
+                  <p className="text-[10px] text-slate-500">Provide image URL for official company branding</p>
                 </div>
+                <div className="space-y-1.5">
+                  <label className="font-semibold text-slate-700">Company Brochure / Job Description Link (Optional)</label>
+                  <Input
+                    type="url"
+                    placeholder="https://drive.google.com/... or https://example.com/brochure.pdf"
+                    value={formData.brochureUrl}
+                    onChange={(e) => setFormData({ ...formData, brochureUrl: e.target.value })}
+                  />
+                  <p className="text-[10px] text-slate-500">Public link to PDF, Drive folder, or recruitment brochure</p>
+                </div>
+              </div>
+
+              {/* CTC Min & Max LPA Feature */}
+              <div className="rounded-xl bg-blue-50/60 p-4 border border-blue-100 space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="font-bold text-slate-800 flex items-center gap-1.5">
+                    <IndianRupee className="h-4 w-4 text-blue-600" /> CTC Package Structure
+                  </label>
+                  <span className="text-[11px] font-semibold text-blue-700">
+                    Preview:{" "}
+                    {formData.minLpa
+                      ? formData.maxLpa
+                        ? `₹${formData.minLpa} - ${formData.maxLpa} LPA`
+                        : `₹${formData.minLpa} LPA`
+                      : "Enter LPA below"}
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="font-semibold text-slate-700">Min LPA (or exact CTC) *</label>
+                    <Input
+                      required
+                      type="number"
+                      step="0.1"
+                      min="0.5"
+                      placeholder="e.g. 7.5"
+                      value={formData.minLpa}
+                      onChange={(e) => setFormData({ ...formData, minLpa: e.target.value })}
+                    />
+                    <p className="text-[10px] text-slate-500">Minimum guaranteed package in Lakhs/annum</p>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="font-semibold text-slate-700">Max LPA (Optional for range)</label>
+                    <Input
+                      type="number"
+                      step="0.1"
+                      min="0.5"
+                      placeholder="e.g. 12.0 (leave blank if fixed)"
+                      value={formData.maxLpa}
+                      onChange={(e) => setFormData({ ...formData, maxLpa: e.target.value })}
+                    />
+                    <p className="text-[10px] text-slate-500">Max CTC for variable/performance bands</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Eligibility Cutoffs */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="space-y-1.5">
                   <label className="font-semibold text-slate-700">Min CPI Cutoff</label>
                   <Input
-                    required
                     type="number"
                     step="0.1"
                     min="0"
                     max="10"
+                    placeholder="e.g. 6.5"
                     value={formData.minCpi}
-                    onChange={(e) => setFormData({ ...formData, minCpi: Number(e.target.value) })}
+                    onChange={(e) => setFormData({ ...formData, minCpi: e.target.value })}
                   />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="font-semibold text-slate-700">Min 10th % (Optional)</label>
+                  <Input
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    max="100"
+                    placeholder="e.g. 60.0"
+                    value={formData.minTenthPercentage}
+                    onChange={(e) => setFormData({ ...formData, minTenthPercentage: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="font-semibold text-slate-700">Min 12th % (Optional)</label>
+                  <Input
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    max="100"
+                    placeholder="e.g. 60.0"
+                    value={formData.minTwelfthPercentage}
+                    onChange={(e) => setFormData({ ...formData, minTwelfthPercentage: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="space-y-1.5">
+                  <label className="font-semibold text-slate-700">Allowed Student Type</label>
+                  <select
+                    value={formData.allowedStudentType}
+                    onChange={(e) => setFormData({ ...formData, allowedStudentType: e.target.value as any })}
+                    className="w-full h-9 rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-900 focus:border-blue-500 focus:outline-none"
+                  >
+                    <option value="ALL">All (Regular + D2D)</option>
+                    <option value="REGULAR">Regular 12th Only</option>
+                    <option value="D2D">D2D Diploma Only</option>
+                  </select>
                 </div>
                 <div className="space-y-1.5">
                   <label className="font-semibold text-slate-700">Application Deadline</label>
@@ -276,33 +625,54 @@ export default function TPODrivesPage() {
                     onChange={(e) => setFormData({ ...formData, deadline: e.target.value })}
                   />
                 </div>
+                <div className="space-y-1.5">
+                  <label className="font-semibold text-slate-700">Job Location</label>
+                  <Input
+                    type="text"
+                    placeholder="e.g. Gandhinagar / Ahmedabad / Remote"
+                    value={formData.location}
+                    onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                  />
+                </div>
               </div>
 
               <div className="space-y-1.5">
-                <label className="font-semibold text-slate-700">Job Location</label>
-                <Input
-                  required
-                  type="text"
-                  placeholder="e.g. Gandhinagar / Ahmedabad / Remote"
-                  value={formData.location}
-                  onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                <label className="font-semibold text-slate-700">Drive Description & Requirements</label>
+                <textarea
+                  rows={2}
+                  placeholder="Role responsibilities, bond details, tech stack..."
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  className="w-full rounded-md border border-slate-200 p-2 text-xs focus:border-blue-500 focus:outline-none"
                 />
               </div>
 
+              {/* Eligible Branches Selection */}
               <div className="space-y-2">
-                <label className="font-semibold text-slate-700">Eligible Branches</label>
-                <div className="flex flex-wrap gap-2">
-                  {BRANCHES.map((b) => {
+                <div className="flex items-center justify-between">
+                  <label className="font-semibold text-slate-700">
+                    Eligible Branches ({formData.eligibleBranches.length}/{ALL_BRANCHES.length} Selected)
+                  </label>
+                  <button
+                    type="button"
+                    onClick={handleSelectAllBranches}
+                    className="text-[11px] font-semibold text-blue-600 hover:text-blue-800"
+                  >
+                    {formData.eligibleBranches.length === ALL_BRANCHES.length ? "Deselect All" : "Select All 14 Branches"}
+                  </button>
+                </div>
+                <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto p-1 bg-slate-50 rounded-xl border border-slate-100">
+                  {ALL_BRANCHES.map((b) => {
                     const isSelected = formData.eligibleBranches.includes(b);
                     return (
                       <button
                         type="button"
                         key={b}
                         onClick={() => handleBranchToggle(b)}
-                        className={`px-3 py-1 rounded-lg border text-xs font-bold transition-all ${
+                        className={`px-2.5 py-1 rounded-lg border text-[11px] font-semibold transition-all ${
                           isSelected
                             ? "bg-blue-600 text-white border-blue-600 shadow-xs"
-                            : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
+                            : "bg-white text-slate-700 border-slate-200 hover:bg-slate-100"
                         }`}
                       >
                         {b}
@@ -331,6 +701,180 @@ export default function TPODrivesPage() {
                 </Button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Applicants & Attendance Modal */}
+      {applicantsModalOpen && activeDriveForApplicants && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs">
+          <div className="w-full max-w-4xl max-h-[88vh] flex flex-col bg-white rounded-3xl shadow-2xl border border-slate-200 p-6 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-slate-100 pb-4 gap-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-base font-bold text-slate-900">
+                    Applicants for {activeDriveForApplicants.company?.name || (activeDriveForApplicants as any).companyName}
+                  </h3>
+                  <Badge variant="default" className="text-[10px]">
+                    {activeDriveForApplicants.role || (activeDriveForApplicants as any).jobRole}
+                  </Badge>
+                </div>
+                <p className="text-xs text-slate-500">
+                  Update candidate selection status (triggers email notification) and mark drive attendance.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleExportDriveApplicants(activeDriveForApplicants.id, "csv")}
+                  className="h-8 text-xs font-medium gap-1 text-emerald-600 hover:bg-emerald-50 border-slate-200"
+                >
+                  <Download className="h-3.5 w-3.5" /> CSV
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleExportDriveApplicants(activeDriveForApplicants.id, "xlsx")}
+                  className="h-8 text-xs font-medium gap-1 text-blue-600 hover:bg-blue-50 border-slate-200"
+                >
+                  <FileSpreadsheet className="h-3.5 w-3.5" /> Excel
+                </Button>
+                <button
+                  onClick={() => setApplicantsModalOpen(false)}
+                  className="rounded-full p-1.5 text-slate-400 hover:bg-slate-100 transition-colors ml-1"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Policy Info Notice */}
+            <div className="bg-amber-50/70 border border-amber-200/80 rounded-xl p-2.5 mx-6 mt-3 text-[11px] text-amber-900 flex items-start gap-2">
+              <AlertCircle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+              <div>
+                <span className="font-bold">Campus Policy:</span> Marking an unplaced student <strong>Absent</strong> debars them from participating in future drives. If a student is already placed (e.g. selected in one drive), absence in this drive is recorded without debarring their confirmed offer. Click &quot;Resume&quot; to review candidate credentials.
+              </div>
+            </div>
+
+            {/* Applicants Table */}
+            <div className="flex-1 overflow-y-auto">
+              {loadingApplicants ? (
+                <div className="p-12 text-center text-xs text-slate-500 font-medium">
+                  Loading applicants...
+                </div>
+              ) : driveApplicants.length === 0 ? (
+                <div className="p-12 text-center text-xs text-slate-500 space-y-2">
+                  <Users className="mx-auto h-8 w-8 text-slate-300" />
+                  <p>No student applications submitted for this recruitment drive yet.</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse text-xs">
+                    <thead>
+                      <tr className="border-b border-slate-100 bg-slate-50/70 text-[11px] font-semibold text-slate-500">
+                        <th className="py-3 px-3">Candidate</th>
+                        <th className="py-3 px-3">Branch / Type</th>
+                        <th className="py-3 px-3">10th %</th>
+                        <th className="py-3 px-3">Resume</th>
+                        <th className="py-3 px-3">Attendance</th>
+                        <th className="py-3 px-3">Selection Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 text-slate-800">
+                      {driveApplicants.map((app) => (
+                        <tr key={app.id} className="hover:bg-slate-50/50 transition-colors">
+                          <td className="py-3 px-3">
+                            <div className="font-semibold text-slate-900">{app.student?.fullName || "Student"}</div>
+                            <div className="text-[11px] text-slate-500 font-mono">{app.student?.user?.email}</div>
+                          </td>
+                          <td className="py-3 px-3">
+                            <div className="font-medium">{app.student?.branch || "—"}</div>
+                            <div className="text-[10px] text-slate-400">{app.student?.studentType || "REGULAR"}</div>
+                          </td>
+                          <td className="py-3 px-3 font-medium">
+                            {app.student?.tenthPercentage ? `${app.student.tenthPercentage}%` : "—"}
+                          </td>
+                          <td className="py-3 px-3">
+                            {app.resumeUrl || app.student?.resumeUrl ? (
+                              <a
+                                href={app.resumeUrl || app.student?.resumeUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-blue-50 text-blue-700 hover:bg-blue-100 font-semibold text-[11px] border border-blue-200 transition-colors"
+                                title="Open applicant resume PDF"
+                              >
+                                <FileText className="h-3 w-3" /> Resume
+                              </a>
+                            ) : (
+                              <span className="text-slate-400 italic text-[11px]">No Resume</span>
+                            )}
+                          </td>
+                          <td className="py-3 px-3">
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => handleMarkAttendance(app.id, true)}
+                                disabled={statusUpdatingId === app.id}
+                                className={`px-2 py-0.5 rounded text-[10px] font-semibold transition-colors ${
+                                  app.attendanceMarked && app.isPresent
+                                    ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
+                                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                                }`}
+                              >
+                                Present
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleMarkAttendance(app.id, false)}
+                                disabled={statusUpdatingId === app.id}
+                                className={`px-2 py-0.5 rounded text-[10px] font-semibold transition-colors ${
+                                  app.attendanceMarked && !app.isPresent
+                                    ? "bg-rose-100 text-rose-800 border border-rose-300"
+                                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                                }`}
+                              >
+                                Absent
+                              </button>
+                            </div>
+                          </td>
+                          <td className="py-3 px-3">
+                            <select
+                              value={app.status}
+                              disabled={statusUpdatingId === app.id}
+                              onChange={(e) =>
+                                handleUpdateStatus(
+                                  app.id,
+                                  e.target.value as "APPLIED" | "SHORTLISTED" | "REJECTED" | "SELECTED"
+                                )
+                              }
+                              className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-700 focus:outline-none focus:border-blue-500"
+                            >
+                              <option value="APPLIED">APPLIED</option>
+                              <option value="SHORTLISTED">SHORTLISTED</option>
+                              <option value="SELECTED">SELECTED</option>
+                              <option value="REJECTED">REJECTED</option>
+                            </select>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            <div className="pt-3 border-t border-slate-100 text-right">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setApplicantsModalOpen(false)}
+                className="text-xs"
+              >
+                Close
+              </Button>
+            </div>
           </div>
         </div>
       )}

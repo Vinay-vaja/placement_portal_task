@@ -22,8 +22,8 @@ export const TENTH_SUBJECTS = [
   "science",
   "english",
   "socialScience",
-  "computerPt",
   "sanskrit",
+  "gujarati",
 ] as const;
 
 export const TWELFTH_SUBJECTS = [

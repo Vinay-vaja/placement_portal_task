@@ -64,6 +64,9 @@ router.get("/drives/:driveId/export", tpoController.exportDriveApplicants);
 // POST /api/tpo/drives/:driveId/notify - send drive notification emails
 router.post("/drives/:driveId/notify", tpoController.sendDriveNotification);
 
+// POST /api/tpo/announcements/refactor - AI refactor rough notes into styled HTML email
+router.post("/announcements/refactor", tpoController.refactorAnnouncement);
+
 // POST /api/tpo/announcements/send - send custom announcement
 router.post("/announcements/send", tpoController.sendAnnouncement);
 

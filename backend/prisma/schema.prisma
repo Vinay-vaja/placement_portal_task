@@ -111,14 +111,14 @@ model Student {
 
   // ===============================
   // 10th Standard Subject Marks (out of 100 each, Total 600)
-  // Maths, English, Social Science, Science, Computer/P.T., Sanskrit
+  // Maths, English, Social Science, Science, Sanskrit, Gujarati
   // ===============================
   mathsMarks         Float?
   scienceMarks       Float?
   englishMarks       Float?
   socialScienceMarks Float?
-  computerPtMarks    Float?
   sanskritMarks       Float?
+  gujaratiMarks      Float?
 
   // 10th percentage (auto-calculated from subject marks on profile submit)
   tenthPercentage Float @default(0)
@@ -310,4 +310,16 @@ model TpoSetting {
   updatedAt DateTime @updatedAt
 
   @@map("tpo_settings")
+}
+
+model PasswordResetOtp {
+  id        String   @id @default(cuid())
+  email     String
+  otp       String
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([email])
+  @@map("password_reset_otps")
 }

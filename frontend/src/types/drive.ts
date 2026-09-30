@@ -7,15 +7,18 @@ export interface Company {
   id: string;
   name: string;
   logoUrl?: string;
+  imageUrl?: string;
   website?: string;
   description?: string;
-  createdAt: string;
+  createdAt?: string;
 }
 
 export interface RecruitmentDrive {
   id: string;
   companyId?: string;
   companyName?: string;
+  companyLogo?: string;
+  brochureUrl?: string;
   company?: Company;
   jobRole?: string;
   role?: string;
@@ -23,8 +26,9 @@ export interface RecruitmentDrive {
   ctc?: number;
   ctcMin?: number;
   ctcMax?: number;
-  location: string;
-  deadline: string;
+  location?: string;
+  deadline?: string;
+  applicationDeadline?: string;
   description?: string;
   
   // Eligibility Criteria
@@ -58,5 +62,6 @@ export interface Application {
   resumeUrl?: string;
   status: "APPLIED" | "SHORTLISTED" | "INTERVIEWED" | "OFFERED" | "REJECTED" | "SELECTED";
   isPresent?: boolean | null;
+  appliedAt?: string;
   createdAt: string;
 }
