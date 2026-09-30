@@ -6,8 +6,8 @@ import { usePathname } from "next/navigation";
 import { RBACGuard } from "@/providers/rbac-guard";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
+import { CollegeLogo } from "@/components/shared/college-logo";
 import {
-  GraduationCap,
   User,
   Briefcase,
   FileCheck,
@@ -39,15 +39,8 @@ export default function StudentLayout({ children }: StudentLayoutProps) {
           <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4 sm:px-6">
             {/* Brand Logo & Nav */}
             <div className="flex items-center gap-7">
-              <Link href="/student/drives" className="flex items-center gap-2.5 transition-opacity hover:opacity-85">
-                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#0071E3] text-white shadow-sm">
-                  <GraduationCap className="h-4.5 w-4.5" />
-                </div>
-                <div>
-                  <span className="text-sm font-semibold tracking-tight text-[#1D1D1F]">
-                    LDCE Placements
-                  </span>
-                </div>
+              <Link href="/student/drives" className="transition-opacity hover:opacity-85">
+                <CollegeLogo size={46} />
               </Link>
 
               {/* Desktop Nav Items */}

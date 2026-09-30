@@ -180,8 +180,8 @@ async function runAllTests() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        email: "tpo@example.com",
-        password: "change-me-secure-password",
+        email: process.env.SEED_TPO_EMAIL || "tpo.demo@ldce.ac.in",
+        password: process.env.SEED_TPO_PASSWORD || "TpoDemo123!",
       }),
     });
     const data = await res.json();

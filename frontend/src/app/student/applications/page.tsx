@@ -3,8 +3,8 @@
 import React, { useEffect, useState } from "react";
 import { studentService } from "@/services/student.service";
 import { Application } from "@/types";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
+import { ApplicationDetailModal } from "@/components/applications/application-detail-modal";
 import {
   FileCheck,
   Building2,
@@ -13,10 +13,12 @@ import {
   XCircle,
   AlertCircle,
   Award,
+  ChevronRight,
 } from "lucide-react";
 
 export default function StudentApplicationsPage() {
   const [applications, setApplications] = useState<Application[]>([]);
+  const [selectedApp, setSelectedApp] = useState<Application | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -55,7 +57,7 @@ export default function StudentApplicationsPage() {
             My Applications
           </h1>
           <p className="text-xs sm:text-sm text-[#86868B]">
-            Track status updates for campus placement drives and company shortlists.
+            Track status updates for campus placement drives and click any application to view full details.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -83,7 +85,7 @@ export default function StudentApplicationsPage() {
               <FileCheck className="mx-auto h-10 w-10 text-[#A1A1A6]" />
               <h3 className="text-sm font-semibold text-[#1D1D1F]">No Applications Submitted Yet</h3>
               <p className="text-xs text-[#86868B] max-w-sm mx-auto">
-                Visit the &quot;Campus Drives&quot; tab to explore open recruitment opportunities and apply.
+                Visit the &quot;Recruitment Drives&quot; tab to explore open placement opportunities and apply.
               </p>
             </div>
           ) : (
@@ -99,48 +101,88 @@ export default function StudentApplicationsPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-black/[0.04] text-xs text-[#1D1D1F]">
-                  {appList.map((app) => (
-                    <tr key={app.id} className="hover:bg-[#F5F5F7]/40 transition-colors">
-                      <td className="py-3.5 px-4 font-medium text-[#1D1D1F] flex items-center gap-2">
-                        <Building2 className="h-4 w-4 text-[#0071E3]" />
-                        {app.drive?.company?.name || app.drive?.companyName || "Company"}
-                      </td>
-                      <td className="py-3.5 px-4 text-[#86868B]">
-                        {app.drive?.jobRole || "Software Engineer"}
-                      </td>
-                      <td className="py-3.5 px-4 font-semibold text-[#1D1D1F]">
-                        {app.drive?.ctcPackage || "Confidential"}
-                      </td>
-                      <td className="py-3.5 px-4 text-[#86868B]">
-                        {new Date(app.appliedAt || app.createdAt).toLocaleDateString()}
-                      </td>
-                      <td className="py-3.5 px-4 text-right">
-                        {app.status === "SELECTED" ? (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-[#34C759]/10 px-2.5 py-0.5 text-[11px] font-medium text-[#28A745] border border-[#34C759]/20">
-                            <Award className="h-3.5 w-3.5 text-[#28A745]" /> Selected
-                          </span>
-                        ) : app.status === "REJECTED" ? (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-[#FF3B30]/10 px-2.5 py-0.5 text-[11px] font-medium text-[#FF3B30] border border-[#FF3B30]/20">
-                            <XCircle className="h-3.5 w-3.5 text-[#FF3B30]" /> Not Selected
-                          </span>
-                        ) : app.status === "SHORTLISTED" ? (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2.5 py-0.5 text-[11px] font-medium text-[#0071E3] border border-[#0071E3]/20">
-                            <CheckCircle2 className="h-3.5 w-3.5 text-[#0071E3]" /> Shortlisted
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-[#FF9500]/10 px-2.5 py-0.5 text-[11px] font-medium text-[#D97706] border border-[#FF9500]/20">
-                            <Clock className="h-3.5 w-3.5 text-[#D97706]" /> Under Review
-                          </span>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
+                  {appList.map((app) => {
+                    const companyTitle = app.drive?.company?.name || app.drive?.companyName || "Company";
+                    const roleTitle = app.drive?.role || app.drive?.jobRole || "Engineering Role";
+                    const ctcDisplay = app.drive?.ctcMax
+                      ? `₹${app.drive.ctc} - ${app.drive.ctcMax} LPA`
+                      : app.drive?.ctc
+                      ? `₹${app.drive.ctc} LPA`
+                      : app.drive?.ctcPackage || "Competitive";
+                    const appliedDate = app.appliedAt || app.createdAt
+                      ? new Date(app.appliedAt || app.createdAt).toLocaleDateString()
+                      : "Recently";
+
+                    return (
+                      <tr
+                        key={app.id}
+                        onClick={() => setSelectedApp(app)}
+                        className="hover:bg-[#0071E3]/5 cursor-pointer transition-colors group"
+                      >
+                        <td className="py-3.5 px-4 font-semibold text-[#1D1D1F]">
+                          <div className="flex items-center gap-2.5">
+                            {app.drive?.company?.imageUrl ? (
+                              <img
+                                src={app.drive.company.imageUrl}
+                                alt={companyTitle}
+                                className="h-7 w-7 rounded-xl object-contain border border-black/[0.08] bg-white p-0.5 shrink-0"
+                              />
+                            ) : (
+                              <div className="flex h-7 w-7 items-center justify-center rounded-xl bg-[#0071E3]/10 text-[#0071E3] shrink-0">
+                                <Building2 className="h-4 w-4" />
+                              </div>
+                            )}
+                            <span className="group-hover:text-[#0071E3] transition-colors">
+                              {companyTitle}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="py-3.5 px-4 font-medium text-[#1D1D1F]">
+                          {roleTitle}
+                        </td>
+                        <td className="py-3.5 px-4 font-semibold text-[#0071E3]">
+                          {ctcDisplay}
+                        </td>
+                        <td className="py-3.5 px-4 text-[#86868B]">
+                          {appliedDate}
+                        </td>
+                        <td className="py-3.5 px-4 text-right">
+                          <div className="inline-flex items-center gap-2">
+                            {app.status === "SELECTED" ? (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-[#34C759]/10 px-2.5 py-0.5 text-[11px] font-medium text-[#28A745] border border-[#34C759]/20">
+                                <Award className="h-3.5 w-3.5 text-[#28A745]" /> Selected
+                              </span>
+                            ) : app.status === "REJECTED" ? (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-[#FF3B30]/10 px-2.5 py-0.5 text-[11px] font-medium text-[#FF3B30] border border-[#FF3B30]/20">
+                                <XCircle className="h-3.5 w-3.5 text-[#FF3B30]" /> Not Selected
+                              </span>
+                            ) : app.status === "SHORTLISTED" ? (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2.5 py-0.5 text-[11px] font-medium text-[#0071E3] border border-[#0071E3]/20">
+                                <CheckCircle2 className="h-3.5 w-3.5 text-[#0071E3]" /> Shortlisted
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-[#FF9500]/10 px-2.5 py-0.5 text-[11px] font-medium text-[#D97706] border border-[#FF9500]/20">
+                                <Clock className="h-3.5 w-3.5 text-[#D97706]" /> Under Review
+                              </span>
+                            )}
+                            <ChevronRight className="h-4 w-4 text-[#86868B] group-hover:text-[#0071E3] group-hover:translate-x-0.5 transition-all" />
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
           )}
         </CardContent>
       </Card>
+
+      {/* Application Details Modal */}
+      <ApplicationDetailModal
+        application={selectedApp}
+        onClose={() => setSelectedApp(null)}
+      />
     </div>
   );
 }

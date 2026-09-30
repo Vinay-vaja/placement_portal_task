@@ -9,7 +9,11 @@ import { parsePagination, buildPaginatedResponse } from "../utils/pagination.js"
  */
 export const getDrives = async (req, res, next) => {
   try {
-    const result = await driveService.getDrives(req.query);
+    const result = await driveService.getDrives(
+      req.query,
+      req.user?.userId,
+      req.user?.role
+    );
     return sendSuccess(res, 200, "Drives retrieved successfully", result);
   } catch (error) {
     next(error);

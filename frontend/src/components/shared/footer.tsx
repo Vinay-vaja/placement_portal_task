@@ -1,7 +1,8 @@
 import React from "react";
 import Link from "next/link";
 import { siteConfig } from "@/config/site";
-import { GraduationCap, ExternalLink, Mail, Phone, MapPin } from "lucide-react";
+import { CollegeLogo } from "@/components/shared/college-logo";
+import { ExternalLink, Mail, Phone, MapPin } from "lucide-react";
 
 export function Footer() {
   return (
@@ -10,14 +11,7 @@ export function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           {/* Col 1: About */}
           <div className="space-y-4 md:col-span-1">
-            <div className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 text-white">
-                <GraduationCap className="h-5 w-5" />
-              </div>
-              <span className="text-base font-bold text-slate-900 dark:text-white">
-                LDCE Placements
-              </span>
-            </div>
+            <CollegeLogo size={36} />
             <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
               L.D. College of Engineering, Ahmedabad. Empowering students with industry-leading placement opportunities.
             </p>
