@@ -3,6 +3,7 @@ import * as driveController from "../controllers/drive.controller.js";
 import * as applicationController from "../controllers/application.controller.js";
 import authMiddleware from "../middleware/auth.middleware.js";
 import { requireRole } from "../middleware/role.middleware.js";
+import { uploadPdf } from "../middleware/upload.middleware.js";
 import { validate } from "../validators/validate.js";
 import {
   createDriveSchema,
@@ -47,9 +48,11 @@ router.get(
 );
 
 // POST /api/drives/:driveId/apply - STUDENT only
+// Requires resume PDF upload via multipart/form-data
 router.post(
   "/:driveId/apply",
   requireRole("STUDENT"),
+  uploadPdf.single("resume"),
   applicationController.applyToDrive
 );
 

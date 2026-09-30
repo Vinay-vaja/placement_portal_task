@@ -1,4 +1,5 @@
 import prisma from "../config/prisma.js";
+import { parsePagination, buildPaginatedResponse } from "../utils/pagination.js";
 
 /**
  * Create a new company (TPO only)
@@ -17,19 +18,33 @@ export const createCompany = async (data) => {
 };
 
 /**
- * Get all companies
+ * Get all companies (paginated)
  */
-export const getCompanies = async () => {
-  const companies = await prisma.company.findMany({
-    orderBy: { createdAt: "desc" },
-    include: {
-      _count: {
-        select: { drives: true },
-      },
-    },
-  });
+export const getCompanies = async (query = {}) => {
+  const { skip, take, page, limit } = parsePagination(query);
+  const where = {};
 
-  return companies;
+  // Search by company name
+  if (query.search) {
+    where.name = { contains: query.search, mode: "insensitive" };
+  }
+
+  const [companies, total] = await Promise.all([
+    prisma.company.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      include: {
+        _count: {
+          select: { drives: true },
+        },
+      },
+      skip,
+      take,
+    }),
+    prisma.company.count({ where }),
+  ]);
+
+  return buildPaginatedResponse(companies, total, page, limit);
 };
 
 /**
@@ -41,6 +56,9 @@ export const getCompanyById = async (companyId) => {
     include: {
       drives: {
         orderBy: { createdAt: "desc" },
+        include: {
+          _count: { select: { applications: true } },
+        },
       },
     },
   });

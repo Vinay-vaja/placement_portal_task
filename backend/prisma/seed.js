@@ -19,33 +19,61 @@ async function main() {
 
   console.log("Starting database seed...");
 
-  // Check if TPO already exists (idempotent)
+  // ============================
+  // 1. Create Central TPO account
+  // ============================
   const existingTpo = await prisma.user.findUnique({
     where: { email: tpoEmail },
   });
 
   if (existingTpo) {
     console.log(`TPO account already exists: ${tpoEmail}`);
-    console.log("Seed is idempotent - skipping duplicate creation.");
-    return;
+  } else {
+    const passwordHash = await bcrypt.hash(tpoPassword, 12);
+
+    const tpo = await prisma.user.create({
+      data: {
+        email: tpoEmail,
+        passwordHash,
+        role: "CENTRAL_TPO",
+        authProvider: "LOCAL",
+      },
+    });
+
+    console.log(`Central TPO account created:`);
+    console.log(`   Email: ${tpo.email}`);
+    console.log(`   Role: ${tpo.role}`);
+    console.log(`   ID: ${tpo.id}`);
   }
 
-  // Hash password
-  const passwordHash = await bcrypt.hash(tpoPassword, 12);
-
-  // Create Central TPO user
-  const tpo = await prisma.user.create({
-    data: {
-      email: tpoEmail,
-      passwordHash,
-      role: "CENTRAL_TPO",
+  // ============================
+  // 2. Create default TPO settings
+  // ============================
+  const defaultSettings = [
+    {
+      key: "required_semesters",
+      value: JSON.stringify([1, 2, 3, 4, 5]),
     },
-  });
+    {
+      key: "sem6_required",
+      value: JSON.stringify(false),
+    },
+    {
+      key: "placement_active",
+      value: JSON.stringify(true),
+    },
+  ];
 
-  console.log(`Central TPO account created:`);
-  console.log(`   Email: ${tpo.email}`);
-  console.log(`   Role: ${tpo.role}`);
-  console.log(`   ID: ${tpo.id}`);
+  for (const setting of defaultSettings) {
+    await prisma.tpoSetting.upsert({
+      where: { key: setting.key },
+      update: {},  // Don't overwrite existing settings
+      create: setting,
+    });
+  }
+
+  console.log("Default TPO settings ensured.");
+
   console.log("\nSeed completed successfully!");
 }
 

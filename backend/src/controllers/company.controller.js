@@ -28,12 +28,12 @@ export const createCompany = async (req, res, next) => {
 
 /**
  * GET /api/companies
- * Get all companies (any authenticated user)
+ * Get all companies (paginated, any authenticated user)
  */
 export const getCompanies = async (req, res, next) => {
   try {
-    const companies = await companyService.getCompanies();
-    return sendSuccess(res, 200, "Companies retrieved successfully", companies);
+    const result = await companyService.getCompanies(req.query);
+    return sendSuccess(res, 200, "Companies retrieved successfully", result);
   } catch (error) {
     next(error);
   }
@@ -41,7 +41,7 @@ export const getCompanies = async (req, res, next) => {
 
 /**
  * GET /api/companies/:id
- * Get a company by ID
+ * Get a company by ID with its drives
  */
 export const getCompanyById = async (req, res, next) => {
   try {
