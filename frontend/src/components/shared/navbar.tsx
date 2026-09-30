@@ -4,7 +4,8 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { siteConfig } from "@/config/site";
 import { Button } from "@/components/ui/button";
-import { GraduationCap, Menu, X, Building2, User } from "lucide-react";
+import { CollegeLogo } from "@/components/shared/college-logo";
+import { Menu, X, Building2, User } from "lucide-react";
 
 export function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -13,15 +14,8 @@ export function Navbar() {
     <header className="sticky top-0 z-50 w-full border-b border-black/[0.06] bg-[#FBFBFD]/80 backdrop-blur-xl">
       <div className="max-w-6xl mx-auto flex h-14 items-center justify-between px-4 sm:px-6">
         {/* Brand Logo */}
-        <Link href="/" className="flex items-center gap-2.5 transition-opacity hover:opacity-80">
-          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#0071E3] text-white shadow-sm">
-            <GraduationCap className="h-4.5 w-4.5" />
-          </div>
-          <div className="flex flex-col">
-            <span className="text-sm font-semibold tracking-tight text-[#1D1D1F]">
-              LDCE Placements
-            </span>
-          </div>
+        <Link href="/" className="transition-opacity hover:opacity-80">
+          <CollegeLogo size={36} />
         </Link>
 
         {/* Desktop Navigation */}

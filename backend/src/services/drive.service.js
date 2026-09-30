@@ -121,8 +121,9 @@ export const createDrive = async (data) => {
 
 /**
  * Get all recruitment drives (paginated with filters)
+ * If accessed by a STUDENT, excludes drives that student has already applied to.
  */
-export const getDrives = async (query = {}) => {
+export const getDrives = async (query = {}, userId = null, userRole = null) => {
   const { skip, take, page, limit } = parsePagination(query);
   const where = {};
 
@@ -140,6 +141,24 @@ export const getDrives = async (query = {}) => {
   if (query.branch) {
     const branches = query.branch.split(",").map((b) => b.trim().toUpperCase());
     where.allowedBranches = { hasSome: branches };
+  }
+
+  // If student is requesting, exclude drives they have already applied to
+  if (userRole === "STUDENT" && userId) {
+    const student = await prisma.student.findUnique({
+      where: { userId },
+      select: { id: true },
+    });
+    if (student) {
+      const studentApps = await prisma.application.findMany({
+        where: { studentId: student.id },
+        select: { driveId: true },
+      });
+      const appliedDriveIds = studentApps.map((a) => a.driveId);
+      if (appliedDriveIds.length > 0) {
+        where.id = { notIn: appliedDriveIds };
+      }
+    }
   }
 
   const [drives, total] = await Promise.all([

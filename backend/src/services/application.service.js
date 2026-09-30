@@ -91,16 +91,7 @@ export const applyToDrive = async (userId, driveId, applicationData) => {
     throw error;
   }
 
-  // 9. Check eligibility (backend is final authority)
-  const eligibility = checkStudentEligibility(student, drive);
-  if (!eligibility.eligible) {
-    const error = new Error("You are not eligible for this drive");
-    error.statusCode = 403;
-    error.reasons = eligibility.reasons;
-    throw error;
-  }
-
-  // 10. Check duplicate application
+  // 9. Check duplicate application (checked before eligibility so duplicate returns 409 first)
   const existingApplication = await prisma.application.findUnique({
     where: {
       studentId_driveId: {
@@ -113,6 +104,15 @@ export const applyToDrive = async (userId, driveId, applicationData) => {
   if (existingApplication) {
     const error = new Error("You have already applied to this recruitment drive");
     error.statusCode = 409;
+    throw error;
+  }
+
+  // 10. Check eligibility (backend is final authority)
+  const eligibility = checkStudentEligibility(student, drive);
+  if (!eligibility.eligible) {
+    const error = new Error("You are not eligible for this drive");
+    error.statusCode = 403;
+    error.reasons = eligibility.reasons;
     throw error;
   }
 

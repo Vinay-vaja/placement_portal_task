@@ -7,7 +7,8 @@ import { authService } from "@/services/auth.service";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { GraduationCap, Lock, AlertCircle, CheckCircle2, ArrowRight } from "lucide-react";
+import { CollegeLogo } from "@/components/shared/college-logo";
+import { Lock, AlertCircle, CheckCircle2, ArrowRight } from "lucide-react";
 
 function ResetPasswordForm() {
   const router = useRouter();
@@ -87,10 +88,8 @@ function ResetPasswordForm() {
     <div className="flex min-h-screen flex-col items-center justify-center bg-[#F5F5F7] px-4 py-12 selection:bg-[#0071E3]/20">
       <div className="w-full max-w-sm space-y-6">
         {/* Brand Mark */}
-        <div className="text-center space-y-2">
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-[#0071E3] text-white shadow-sm shadow-[#0071E3]/20">
-            <GraduationCap className="h-6 w-6" />
-          </div>
+        <div className="text-center space-y-2 flex flex-col items-center">
+          <CollegeLogo size={64} showText={false} />
           <h1 className="text-2xl font-semibold tracking-tight text-[#1D1D1F]">
             Placement Portal
           </h1>
