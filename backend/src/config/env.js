@@ -23,6 +23,9 @@ export const config = {
   brevoApiKey: process.env.BREVO_API_KEY,
   brevoSenderEmail: process.env.BREVO_SENDER_EMAIL || "placements@college.edu",
   brevoSenderName: process.env.BREVO_SENDER_NAME || "Placement Cell",
+
+  // Groq AI
+  groqApiKey: process.env.GROQ_API_KEY,
 };
 
 /**

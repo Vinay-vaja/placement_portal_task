@@ -52,6 +52,84 @@ export default function TPODashboardPage() {
     studentType: "ALL" as "ALL" | "REGULAR" | "D2D",
   });
 
+  // Groq AI Refactoring & Template Presets State
+  const [rawAiNotes, setRawAiNotes] = useState("");
+  const [isRefactoringAi, setIsRefactoringAi] = useState(false);
+  const [aiModelUsed, setAiModelUsed] = useState<string | null>(null);
+  const [activePresetId, setActivePresetId] = useState<string | null>(null);
+  const [customGroqKey, setCustomGroqKey] = useState("");
+  const [showKeyInput, setShowKeyInput] = useState(false);
+  const [announcementModalTab, setAnnouncementModalTab] = useState<"compose" | "preview">("compose");
+
+  const PRESET_TEMPLATES = [
+    {
+      id: "drive",
+      label: "🎯 Placement Drive",
+      subject: "🚨 Campus Recruitment Drive: [Company Name] ([CTC] LPA)",
+      sampleNotes:
+        "TCS is visiting on Friday 10th October for CE, IT, AIML branches. Package 9 LPA. Online test at 10 AM in Computer Center Lab 1. Carry 2 printed resumes, photo ID, and verified marksheet copies.",
+    },
+    {
+      id: "interview",
+      label: "📅 Technical Interview",
+      subject: "📅 Technical Interview & Assessment Schedule Update",
+      sampleNotes:
+        "Round 2 Technical Interviews for shortlisted candidates will begin tomorrow at 9:30 AM in the TPO Conference Hall. Formal college dress code and student ID card are mandatory.",
+    },
+    {
+      id: "policy",
+      label: "⚠️ Policy & Attendance",
+      subject: "⚠️ Mandatory Notice: Placement Code of Conduct & Attendance Rules",
+      sampleNotes:
+        "All registered candidates must maintain 100% attendance in scheduled placement rounds. Unexcused absence after shortlisting will lead to immediate debarment under Central Placement regulations.",
+    },
+    {
+      id: "deadline",
+      label: "📝 Profile Deadline",
+      subject: "📝 Urgent: Profile Locking & Marksheet Verification Deadline",
+      sampleNotes:
+        "All final year students must lock their profiles and submit verified semester 1-6 SPIs by Friday 5:00 PM. Unverified profiles will not be nominated for upcoming drives.",
+    },
+  ];
+
+  const handleApplyPreset = (preset: typeof PRESET_TEMPLATES[0]) => {
+    setActivePresetId(preset.id);
+    setRawAiNotes(preset.sampleNotes);
+    if (!announcementForm.title) {
+      setAnnouncementForm((prev) => ({ ...prev, title: preset.subject }));
+    }
+  };
+
+  const handleRefactorWithGroq = async () => {
+    if (!rawAiNotes.trim()) {
+      alert("Please enter a few lines of rough notes or pick a preset template.");
+      return;
+    }
+
+    try {
+      setIsRefactoringAi(true);
+      const res = await tpoService.refactorAnnouncement({
+        rawNotes: rawAiNotes.trim(),
+        templatePreset: activePresetId || "general",
+        customApiKey: customGroqKey.trim() || undefined,
+      });
+
+      if (res.data) {
+        setAnnouncementForm((prev) => ({
+          ...prev,
+          title: res.data.subject || prev.title,
+          body: res.data.htmlBody,
+        }));
+        setAiModelUsed(res.data.modelUsed);
+        setAnnouncementModalTab("preview");
+      }
+    } catch (err: unknown) {
+      alert((err as Error)?.message || "Failed to refactor announcement with AI.");
+    } finally {
+      setIsRefactoringAi(false);
+    }
+  };
+
   // Email Logs Modal State
   const [logsModalOpen, setLogsModalOpen] = useState(false);
   const [emailLogs, setEmailLogs] = useState<EmailLog[]>([]);
@@ -87,8 +165,8 @@ export default function TPODashboardPage() {
     }
   };
 
-  const handleSendAnnouncement = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSendAnnouncement = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     if (!announcementForm.title.trim() || !announcementForm.body.trim()) {
       alert("Please fill in both announcement subject and message.");
       return;
@@ -583,119 +661,311 @@ export default function TPODashboardPage() {
 
       {/* EMAIL ANNOUNCEMENT MODAL */}
       {announcementModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
-          <div className="w-full max-w-lg rounded-3xl bg-white border border-black/[0.08] shadow-2xl p-6 sm:p-7 space-y-5">
-            <div className="flex items-center justify-between border-b border-black/[0.06] pb-4">
-              <div className="flex items-center gap-2.5">
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#0071E3]/10 text-[#0071E3]">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-3 sm:p-4">
+          <div className="w-full max-w-3xl max-h-[92vh] flex flex-col rounded-3xl bg-white border border-black/[0.08] shadow-2xl overflow-hidden">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-black/[0.06] p-5 sm:p-6 bg-[#FAFAFC]">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#0071E3]/10 text-[#0071E3]">
                   <Mail className="h-5 w-5" />
                 </div>
                 <div>
-                  <h3 className="text-base font-semibold text-[#1D1D1F]">Campus Email Announcement</h3>
-                  <p className="text-xs text-[#86868B]">Broadcast updates to student inboxes</p>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-base font-semibold text-[#1D1D1F]">Campus Email Announcement</h3>
+                    <Badge variant="outline" className="text-[10px] bg-[#0071E3]/10 text-[#0071E3] border-[#0071E3]/20">
+                      Groq AI Powered
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-[#86868B]">
+                    Broadcast HTML emails to students • Predefined templates or 2-line notes refactored by Groq AI
+                  </p>
                 </div>
               </div>
               <button
                 onClick={() => setAnnouncementModalOpen(false)}
-                className="rounded-full p-1.5 text-[#86868B] hover:bg-[#F5F5F7]"
+                className="rounded-full p-2 text-[#86868B] hover:bg-black/[0.05] transition-colors"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
 
-            {announcementSuccess && (
-              <div className="flex items-center gap-2 rounded-2xl bg-emerald-50 p-3.5 text-xs font-medium text-emerald-700 border border-emerald-200">
-                <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
-                <span>{announcementSuccess}</span>
-              </div>
-            )}
-
-            <form onSubmit={handleSendAnnouncement} className="space-y-4 text-xs">
-              <div className="space-y-1.5">
-                <label className="font-semibold text-[#1D1D1F]">Announcement Title / Subject *</label>
-                <Input
-                  required
-                  placeholder="e.g. Mandatory Placement Orientation & Aptitude Prep"
-                  value={announcementForm.title}
-                  onChange={(e) => setAnnouncementForm({ ...announcementForm, title: e.target.value })}
-                />
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <label className="font-semibold text-[#1D1D1F]">Target Branch</label>
-                  <select
-                    value={announcementForm.branch}
-                    onChange={(e) => setAnnouncementForm({ ...announcementForm, branch: e.target.value })}
-                    className="w-full h-10 rounded-xl border border-black/[0.1] bg-[#F5F5F7]/80 px-3 text-xs text-[#1D1D1F] focus:bg-white focus:border-[#0071E3] focus:outline-none"
-                  >
-                    <option value="ALL">All Engineering Branches</option>
-                    {ENGINEERING_BRANCHES.map((b) => (
-                      <option key={b.code} value={b.code}>
-                        {b.code} - {b.name}
-                      </option>
-                    ))}
-                  </select>
+            {/* Scrollable Content */}
+            <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-5 text-xs">
+              {announcementSuccess && (
+                <div className="flex items-center gap-2.5 rounded-2xl bg-emerald-50 p-4 text-xs font-medium text-emerald-800 border border-emerald-200 shadow-xs">
+                  <CheckCircle2 className="h-4 w-4 flex-shrink-0 text-emerald-600" />
+                  <span>{announcementSuccess}</span>
                 </div>
+              )}
 
-                <div className="space-y-1.5">
-                  <label className="font-semibold text-[#1D1D1F]">Student Type</label>
-                  <select
-                    value={announcementForm.studentType}
-                    onChange={(e) =>
-                      setAnnouncementForm({
-                        ...announcementForm,
-                        studentType: e.target.value as "ALL" | "REGULAR" | "D2D",
-                      })
-                    }
-                    className="w-full h-10 rounded-xl border border-black/[0.1] bg-[#F5F5F7]/80 px-3 text-xs text-[#1D1D1F] focus:bg-white focus:border-[#0071E3] focus:outline-none"
-                  >
-                    <option value="ALL">All Students (Regular & D2D)</option>
-                    <option value="REGULAR">Regular Students Only</option>
-                    <option value="D2D">D2D Students Only</option>
-                  </select>
+              {/* SECTION 1: PREDEFINED EMAIL TEMPLATES */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-semibold text-[#1D1D1F] flex items-center gap-1.5">
+                    <span>Predefined Email Templates</span>
+                    <span className="text-[11px] font-normal text-[#86868B]">(Select to auto-populate)</span>
+                  </label>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {PRESET_TEMPLATES.map((preset) => (
+                    <button
+                      key={preset.id}
+                      type="button"
+                      onClick={() => handleApplyPreset(preset)}
+                      className={`px-3 py-1.5 rounded-xl border text-xs font-medium transition-all ${
+                        activePresetId === preset.id
+                          ? "bg-[#0071E3] text-white border-[#0071E3] shadow-xs"
+                          : "bg-[#F5F5F7] text-[#1D1D1F] border-black/[0.06] hover:bg-white hover:border-[#0071E3]/40"
+                      }`}
+                    >
+                      {preset.label}
+                    </button>
+                  ))}
                 </div>
               </div>
 
-              <div className="space-y-1.5">
-                <label className="font-semibold text-[#1D1D1F]">Message Body *</label>
-                <textarea
-                  required
-                  rows={4}
-                  placeholder="Compose your campus notification message here..."
-                  value={announcementForm.body}
-                  onChange={(e) => setAnnouncementForm({ ...announcementForm, body: e.target.value })}
-                  className="w-full rounded-2xl border border-black/[0.1] bg-[#F5F5F7]/80 p-3 text-xs text-[#1D1D1F] focus:bg-white focus:border-[#0071E3] focus:outline-none"
-                />
+              {/* SECTION 2: GROQ AI QUICK REFACTOR */}
+              <div className="rounded-2xl border border-[#0071E3]/20 bg-gradient-to-br from-[#0071E3]/[0.03] to-transparent p-4 sm:p-5 space-y-3.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-[#0071E3] text-white">
+                      <Sparkles className="h-3.5 w-3.5" />
+                    </div>
+                    <span className="font-semibold text-[#1D1D1F]">
+                      Groq AI HTML Email Refactor
+                    </span>
+                    <span className="text-[10px] text-[#86868B] font-mono bg-white px-2 py-0.5 rounded-full border border-black/[0.06]">
+                      llama-3.3-70b-versatile
+                    </span>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setShowKeyInput(!showKeyInput)}
+                    className="text-[11px] text-[#0071E3] hover:underline"
+                  >
+                    {showKeyInput ? "Hide API Key" : "Custom Groq Key"}
+                  </button>
+                </div>
+
+                {showKeyInput && (
+                  <div className="space-y-1">
+                    <Input
+                      type="password"
+                      placeholder="Optional custom Groq API Key (gsk_...)"
+                      value={customGroqKey}
+                      onChange={(e) => setCustomGroqKey(e.target.value)}
+                      className="text-xs h-8"
+                    />
+                    <p className="text-[10px] text-[#86868B]">
+                      Leave blank to use the server default / deterministic high-fidelity design engine.
+                    </p>
+                  </div>
+                )}
+
+                <div className="space-y-1.5">
+                  <p className="text-[11px] text-[#86868B]">
+                    Type 1 or 2 lines of rough notes (e.g. company name, date, package, rules). Groq will rewrite it into a responsive, corporate-styled HTML email.
+                  </p>
+                  <textarea
+                    rows={3}
+                    placeholder="e.g. Microsoft drive next Tuesday for CE/IT, 25 LPA CTC, reporting 9:00 AM at Lab 5. Bring 2 copies resume and ID card."
+                    value={rawAiNotes}
+                    onChange={(e) => setRawAiNotes(e.target.value)}
+                    className="w-full rounded-xl border border-black/[0.1] bg-white p-3 text-xs text-[#1D1D1F] focus:border-[#0071E3] focus:ring-1 focus:ring-[#0071E3] focus:outline-none"
+                  />
+                </div>
+
+                <div className="flex items-center justify-between pt-1">
+                  {aiModelUsed && (
+                    <span className="text-[10px] text-emerald-700 bg-emerald-50 px-2 py-1 rounded-md border border-emerald-200">
+                      Refactored with: {aiModelUsed}
+                    </span>
+                  )}
+                  <Button
+                    type="button"
+                    variant="primary"
+                    size="sm"
+                    onClick={handleRefactorWithGroq}
+                    disabled={isRefactoringAi || !rawAiNotes.trim()}
+                    className="ml-auto gap-2 text-xs shadow-sm bg-[#0071E3] hover:bg-[#0077ED]"
+                  >
+                    <Sparkles className={`h-3.5 w-3.5 ${isRefactoringAi ? "animate-spin" : ""}`} />
+                    {isRefactoringAi ? "Refactoring with Groq..." : "Enhance with Groq AI"}
+                  </Button>
+                </div>
               </div>
 
-              <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-black/[0.06]">
+              {/* TABS: Visual Preview vs Source/Compose */}
+              <div className="flex border-b border-black/[0.08] gap-4">
+                <button
+                  type="button"
+                  onClick={() => setAnnouncementModalTab("compose")}
+                  className={`pb-2.5 text-xs font-semibold border-b-2 transition-all ${
+                    announcementModalTab === "compose"
+                      ? "border-[#0071E3] text-[#0071E3]"
+                      : "border-transparent text-[#86868B] hover:text-[#1D1D1F]"
+                  }`}
+                >
+                  ✏️ Subject & Source Editor
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAnnouncementModalTab("preview")}
+                  className={`pb-2.5 text-xs font-semibold border-b-2 transition-all ${
+                    announcementModalTab === "preview"
+                      ? "border-[#0071E3] text-[#0071E3]"
+                      : "border-transparent text-[#86868B] hover:text-[#1D1D1F]"
+                  }`}
+                >
+                  👁️ Live Email Preview
+                </button>
+              </div>
+
+              {announcementModalTab === "compose" ? (
+                /* COMPOSE / SOURCE TAB */
+                <div className="space-y-4">
+                  <div className="space-y-1.5">
+                    <label className="font-semibold text-[#1D1D1F]">Announcement Title / Email Subject *</label>
+                    <Input
+                      required
+                      placeholder="e.g. 🚨 Campus Placement Drive: Microsoft (25 LPA) — Notice"
+                      value={announcementForm.title}
+                      onChange={(e) => setAnnouncementForm({ ...announcementForm, title: e.target.value })}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <label className="font-semibold text-[#1D1D1F]">Target Branch</label>
+                      <select
+                        value={announcementForm.branch}
+                        onChange={(e) => setAnnouncementForm({ ...announcementForm, branch: e.target.value })}
+                        className="w-full h-10 rounded-xl border border-black/[0.1] bg-[#F5F5F7]/80 px-3 text-xs text-[#1D1D1F] focus:bg-white focus:border-[#0071E3] focus:outline-none"
+                      >
+                        <option value="ALL">All Engineering Branches</option>
+                        {ENGINEERING_BRANCHES.map((b) => (
+                          <option key={b.code} value={b.code}>
+                            {b.code} - {b.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="font-semibold text-[#1D1D1F]">Student Type</label>
+                      <select
+                        value={announcementForm.studentType}
+                        onChange={(e) =>
+                          setAnnouncementForm({
+                            ...announcementForm,
+                            studentType: e.target.value as "ALL" | "REGULAR" | "D2D",
+                          })
+                        }
+                        className="w-full h-10 rounded-xl border border-black/[0.1] bg-[#F5F5F7]/80 px-3 text-xs text-[#1D1D1F] focus:bg-white focus:border-[#0071E3] focus:outline-none"
+                      >
+                        <option value="ALL">All Students (Regular & D2D)</option>
+                        <option value="REGULAR">Regular Students Only</option>
+                        <option value="D2D">D2D Students Only</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <label className="font-semibold text-[#1D1D1F]">Message Body (HTML Content Supported) *</label>
+                      <button
+                        type="button"
+                        onClick={() => setAnnouncementModalTab("preview")}
+                        className="text-[11px] text-[#0071E3] hover:underline"
+                      >
+                        Switch to Visual Preview →
+                      </button>
+                    </div>
+                    <textarea
+                      required
+                      rows={7}
+                      placeholder="Compose message or click 'Enhance with Groq AI' above to auto-generate beautiful HTML email code..."
+                      value={announcementForm.body}
+                      onChange={(e) => setAnnouncementForm({ ...announcementForm, body: e.target.value })}
+                      className="w-full rounded-2xl border border-black/[0.1] bg-[#F5F5F7]/80 p-3 font-mono text-[11px] text-[#1D1D1F] focus:bg-white focus:border-[#0071E3] focus:outline-none"
+                    />
+                  </div>
+                </div>
+              ) : (
+                /* LIVE PREVIEW TAB */
+                <div className="space-y-4">
+                  <div className="rounded-2xl border border-black/[0.08] bg-[#F5F5F7] p-4 space-y-2">
+                    <div className="flex items-center gap-2 text-xs">
+                      <span className="font-semibold text-[#86868B]">Subject:</span>
+                      <span className="font-semibold text-[#1D1D1F]">{announcementForm.title || "(No subject set)"}</span>
+                    </div>
+                    <div className="flex items-center gap-4 text-[11px] text-[#86868B]">
+                      <span>To: <strong>{announcementForm.branch === "ALL" ? "All Branches" : announcementForm.branch}</strong></span>
+                      <span>Type: <strong>{announcementForm.studentType}</strong></span>
+                    </div>
+                  </div>
+
+                  {announcementForm.body ? (
+                    <div className="rounded-2xl border border-black/[0.1] p-4 bg-white overflow-hidden shadow-xs">
+                      <div
+                        className="email-preview-container max-w-full overflow-x-auto text-sm"
+                        dangerouslySetInnerHTML={{ __html: announcementForm.body }}
+                      />
+                    </div>
+                  ) : (
+                    <div className="p-8 text-center text-[#86868B] bg-[#F5F5F7] rounded-2xl border border-dashed border-black/[0.1]">
+                      <Mail className="h-8 w-8 mx-auto mb-2 text-[#86868B]" />
+                      <p>No email content generated yet.</p>
+                      <p className="text-[11px]">Type rough notes in the Groq AI composer or choose a preset template.</p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex items-center justify-between gap-3 p-4 sm:p-5 border-t border-black/[0.06] bg-[#FAFAFC]">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setAnnouncementModalOpen(false)}
+                className="text-xs"
+              >
+                Cancel
+              </Button>
+
+              <div className="flex items-center gap-2">
+                {announcementModalTab === "compose" && announcementForm.body && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setAnnouncementModalTab("preview")}
+                    className="text-xs"
+                  >
+                    View Preview
+                  </Button>
+                )}
                 <Button
                   type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setAnnouncementModalOpen(false)}
-                  className="text-xs"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="submit"
                   variant="primary"
                   size="sm"
-                  disabled={isSendingAnnouncement}
-                  className="gap-2 text-xs"
+                  onClick={handleSendAnnouncement}
+                  disabled={isSendingAnnouncement || !announcementForm.title.trim() || !announcementForm.body.trim()}
+                  className="gap-2 text-xs shadow-sm bg-[#0071E3] hover:bg-[#0077ED]"
                 >
                   {isSendingAnnouncement ? (
                     "Broadcasting..."
                   ) : (
                     <>
-                      <Send className="h-3.5 w-3.5" /> Send Announcement
+                      <Send className="h-3.5 w-3.5" /> Send Announcement Email
                     </>
                   )}
                 </Button>
               </div>
-            </form>
+            </div>
           </div>
         </div>
       )}

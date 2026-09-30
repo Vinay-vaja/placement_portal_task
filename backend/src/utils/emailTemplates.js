@@ -118,15 +118,51 @@ export const SELECTION_RESULT = (params) =>
 /**
  * Custom announcement email
  */
-export const CUSTOM_ANNOUNCEMENT = (params) =>
-  baseWrapper(`
+export const CUSTOM_ANNOUNCEMENT = (params) => {
+  // If the body already has complete styled HTML layout, use directly
+  if (
+    params.body &&
+    (params.body.includes("<div style=") ||
+      params.body.includes("<!DOCTYPE html>") ||
+      params.body.includes("<table"))
+  ) {
+    return params.body;
+  }
+
+  return baseWrapper(`
     <div class="header">
       <h1>📢 ${params.title}</h1>
     </div>
     <div class="body">
-      <p>Dear <strong>${params.studentName}</strong>,</p>
+      <p>Dear <strong>${params.studentName || "Student"}</strong>,</p>
       <div>${params.body}</div>
       ${params.driveInfo ? `<div class="highlight"><strong>Related Drive:</strong> ${params.driveInfo}</div>` : ""}
+    </div>
+  `);
+};
+
+/**
+ * Password Reset OTP email
+ */
+export const PASSWORD_RESET_OTP = (params) =>
+  baseWrapper(`
+    <div class="header" style="background: linear-gradient(135deg, #1D1D1F, #0071E3);">
+      <h1>🔐 Password Reset Verification Code</h1>
+    </div>
+    <div class="body">
+      <p>Hello <strong>${params.name || "Student"}</strong>,</p>
+      <p>We received a request to reset the password for your <strong>LDCE Placement Portal</strong> account.</p>
+      <p>Use the 6-digit verification code below to authorize your password change. This code will expire in <strong>10 minutes</strong>.</p>
+      
+      <div style="margin: 28px 0; text-align: center;">
+        <div style="display: inline-block; background: #F5F5F7; border: 2px solid #0071E3; border-radius: 14px; padding: 16px 36px; letter-spacing: 10px; font-size: 34px; font-weight: 800; color: #1D1D1F; font-family: 'SF Mono', Monaco, Consolas, monospace;">
+          ${params.otp}
+        </div>
+      </div>
+
+      <div class="highlight" style="border-left: 4px solid #FF9500; background: #FFFBEB;">
+        <strong>⚠️ Security Notice:</strong> Never share this code with anyone. Central TPO coordinators will never ask for your verification code.
+      </div>
     </div>
   `);
 
@@ -135,4 +171,5 @@ export const TEMPLATES = {
   ROUND_SCHEDULE,
   SELECTION_RESULT,
   CUSTOM_ANNOUNCEMENT,
+  PASSWORD_RESET_OTP,
 };

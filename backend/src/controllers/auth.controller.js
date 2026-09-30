@@ -46,3 +46,58 @@ export const googleAuth = async (req, res, next) => {
     next(error);
   }
 };
+
+/**
+ * POST /api/auth/forgot-password
+ * Send 6-digit OTP to user's email
+ */
+export const forgotPassword = async (req, res, next) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return sendError(res, 400, "Email address is required");
+    }
+    const result = await authService.requestPasswordReset(email);
+    return sendSuccess(res, 200, result.message, result);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * POST /api/auth/verify-otp
+ * Verify 6-digit OTP and return reset token
+ */
+export const verifyOtp = async (req, res, next) => {
+  try {
+    const { email, otp } = req.body;
+    if (!email || !otp) {
+      return sendError(res, 400, "Email and OTP verification code are required");
+    }
+    const result = await authService.verifyPasswordResetOtp(email, otp);
+    return sendSuccess(res, 200, result.message, result);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * POST /api/auth/reset-password
+ * Set new password using verified reset token
+ */
+export const resetPassword = async (req, res, next) => {
+  try {
+    const { email, resetToken, newPassword } = req.body;
+    if (!email || !resetToken || !newPassword) {
+      return sendError(res, 400, "Email, reset token, and new password are required");
+    }
+    const result = await authService.resetPasswordWithToken({
+      email,
+      resetToken,
+      newPassword,
+    });
+    return sendSuccess(res, 200, result.message, result);
+  } catch (error) {
+    next(error);
+  }
+};

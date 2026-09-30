@@ -283,3 +283,32 @@ export const getEmailLogs = async (query = {}) => {
 
   return { logs, total };
 };
+
+/**
+ * Send 6-digit OTP email for password reset
+ */
+export const sendPasswordResetOtpEmail = async (email, otp, name = "Student") => {
+  const subject = `Your Password Reset OTP: ${otp} - LDCE Placement Portal`;
+  const htmlContent = TEMPLATES.PASSWORD_RESET_OTP({
+    name,
+    otp,
+  });
+
+  const results = await sendBulkEmail(
+    [{ email, name }],
+    subject,
+    htmlContent
+  );
+
+  await prisma.emailLog.create({
+    data: {
+      toEmail: email,
+      subject,
+      templateName: "PASSWORD_RESET_OTP",
+      status: results[0]?.status === "SENT" ? "SENT" : "FAILED",
+      error: results[0]?.error || null,
+    },
+  });
+
+  return results[0];
+};

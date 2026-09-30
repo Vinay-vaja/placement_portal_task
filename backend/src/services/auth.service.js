@@ -1,8 +1,10 @@
+import jwt from "jsonwebtoken";
 import prisma from "../config/prisma.js";
 import { hashPassword, comparePassword } from "../utils/password.js";
 import { generateToken } from "../utils/jwt.js";
 import { OAuth2Client } from "google-auth-library";
 import { config } from "../config/env.js";
+import { sendPasswordResetOtpEmail } from "./email.service.js";
 
 const googleClient = config.googleClientId
   ? new OAuth2Client(config.googleClientId)
@@ -359,5 +361,150 @@ export const googleAuth = async (idToken) => {
     },
     isNewUser: true,
     profileComplete: false,
+  };
+};
+
+/**
+ * Request Password Reset OTP
+ * Finds user, generates 6-digit OTP, stores it, and sends via Brevo
+ */
+export const requestPasswordReset = async (email) => {
+  const normalizedEmail = email.toLowerCase().trim();
+  const user = await prisma.user.findUnique({
+    where: { email: normalizedEmail },
+    include: { student: { select: { fullName: true } } },
+  });
+
+  if (!user) {
+    const error = new Error("No account found registered with this email address.");
+    error.statusCode = 404;
+    throw error;
+  }
+
+  // Generate 6-digit numeric OTP
+  const otp = Math.floor(100000 + Math.random() * 900000).toString();
+  const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes expiry
+
+  // Invalidate any older unused OTPs for this email
+  await prisma.passwordResetOtp.updateMany({
+    where: { email: normalizedEmail, used: false },
+    data: { used: true },
+  });
+
+  // Save new OTP
+  await prisma.passwordResetOtp.create({
+    data: {
+      email: normalizedEmail,
+      otp,
+      expiresAt,
+    },
+  });
+
+  // Send email via Brevo
+  const recipientName =
+    user.student?.fullName || (user.role === "CENTRAL_TPO" ? "Central TPO" : "Student");
+  await sendPasswordResetOtpEmail(normalizedEmail, otp, recipientName);
+
+  return {
+    email: normalizedEmail,
+    message: "A 6-digit verification code has been dispatched to your email.",
+  };
+};
+
+/**
+ * Verify Password Reset OTP
+ * Checks valid OTP, marks as used, returns short-lived reset token
+ */
+export const verifyPasswordResetOtp = async (email, otp) => {
+  const normalizedEmail = email.toLowerCase().trim();
+  const cleanOtp = (otp || "").toString().trim();
+
+  const otpRecord = await prisma.passwordResetOtp.findFirst({
+    where: {
+      email: normalizedEmail,
+      otp: cleanOtp,
+      used: false,
+      expiresAt: { gt: new Date() },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  if (!otpRecord) {
+    const error = new Error("Invalid or expired verification code. Please check or request a new code.");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  // Mark OTP as used
+  await prisma.passwordResetOtp.update({
+    where: { id: otpRecord.id },
+    data: { used: true },
+  });
+
+  // Generate 15-minute reset token
+  const resetToken = jwt.sign(
+    { email: normalizedEmail, purpose: "password_reset" },
+    config.jwtSecret,
+    { expiresIn: "15m" }
+  );
+
+  return {
+    email: normalizedEmail,
+    resetToken,
+    message: "Verification code confirmed successfully.",
+  };
+};
+
+/**
+ * Reset Password with verified reset token
+ */
+export const resetPasswordWithToken = async ({ email, resetToken, newPassword }) => {
+  const normalizedEmail = email.toLowerCase().trim();
+
+  if (!newPassword || newPassword.length < 6) {
+    const error = new Error("New password must be at least 6 characters in length.");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  // Verify reset token
+  let decoded;
+  try {
+    decoded = jwt.verify(resetToken, config.jwtSecret);
+  } catch (err) {
+    const error = new Error("Reset session has expired or is invalid. Please request a new code.");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  if (decoded.purpose !== "password_reset" || decoded.email !== normalizedEmail) {
+    const error = new Error("Reset token does not match the requested account.");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { email: normalizedEmail },
+  });
+
+  if (!user) {
+    const error = new Error("Account not found.");
+    error.statusCode = 404;
+    throw error;
+  }
+
+  const passwordHash = await hashPassword(newPassword);
+
+  await prisma.user.update({
+    where: { id: user.id },
+    data: {
+      passwordHash,
+      // If user had GOOGLE authProvider only, allowing local password now
+      authProvider: "LOCAL",
+    },
+  });
+
+  return {
+    message: "Password has been successfully updated. You can now sign in with your new password.",
   };
 };

@@ -2,6 +2,7 @@ import * as studentService from "../services/student.service.js";
 import * as dashboardService from "../services/dashboard.service.js";
 import * as emailService from "../services/email.service.js";
 import * as exportService from "../services/export.service.js";
+import * as aiService from "../services/ai.service.js";
 import { sendSuccess, sendError } from "../utils/response.js";
 import { parsePagination, parseSorting, buildPaginatedResponse } from "../utils/pagination.js";
 
@@ -173,6 +174,29 @@ export const sendDriveNotification = async (req, res, next) => {
       req.body.customMessage
     );
     return sendSuccess(res, 200, result.message, result);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * POST /api/tpo/announcements/refactor
+ * Refactor rough TPO notes into styled HTML email using Groq AI
+ */
+export const refactorAnnouncement = async (req, res, next) => {
+  try {
+    const { rawNotes, templatePreset, customApiKey } = req.body;
+    if (!rawNotes || !rawNotes.trim()) {
+      return sendError(res, 400, "Notes text is required for AI refactoring");
+    }
+
+    const result = await aiService.refactorAnnouncementWithGroq({
+      rawNotes,
+      templatePreset,
+      customApiKey,
+    });
+
+    return sendSuccess(res, 200, "Announcement refactored successfully", result);
   } catch (error) {
     next(error);
   }

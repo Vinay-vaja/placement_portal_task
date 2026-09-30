@@ -69,6 +69,26 @@ export const tpoService = {
     );
   },
 
+  refactorAnnouncement: async (payload: {
+    rawNotes: string;
+    templatePreset?: string;
+    customApiKey?: string;
+  }): Promise<
+    ApiResponse<{
+      subject: string;
+      htmlBody: string;
+      modelUsed: string;
+    }>
+  > => {
+    return apiClient.post<
+      ApiResponse<{
+        subject: string;
+        htmlBody: string;
+        modelUsed: string;
+      }>
+    >("/tpo/announcements/refactor", payload);
+  },
+
   sendAnnouncement: async (
     payload: AnnouncementPayload
   ): Promise<ApiResponse<{ count: number; message: string }>> => {
