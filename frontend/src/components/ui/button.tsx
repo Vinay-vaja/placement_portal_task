@@ -21,21 +21,25 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     ref
   ) => {
     const baseStyles =
-      "inline-flex items-center justify-center font-medium rounded-xl transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed";
+      "inline-flex items-center justify-center font-medium rounded-full transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-40 disabled:cursor-not-allowed select-none";
 
     const variants = {
-      primary: "bg-blue-600 hover:bg-blue-700 text-white focus:ring-blue-500 shadow-sm",
-      secondary: "bg-slate-800 hover:bg-slate-900 text-white focus:ring-slate-700 shadow-sm",
+      primary:
+        "bg-[#0071E3] hover:bg-[#0077ED] active:bg-[#0062C4] text-white shadow-sm focus:ring-[#0071E3]/40 border border-transparent",
+      secondary:
+        "bg-[#1D1D1F] hover:bg-[#2D2D2F] active:bg-[#111112] text-white shadow-sm focus:ring-[#1D1D1F]/40 border border-transparent",
       outline:
-        "border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 focus:ring-slate-300",
-      ghost: "hover:bg-slate-100 text-slate-700",
-      destructive: "bg-red-600 hover:bg-red-700 text-white focus:ring-red-500 shadow-sm",
+        "border border-black/[0.12] bg-white hover:bg-neutral-50 active:bg-neutral-100 text-[#1D1D1F] focus:ring-black/10 shadow-sm",
+      ghost:
+        "hover:bg-black/[0.04] active:bg-black/[0.08] text-[#1D1D1F] focus:ring-black/10",
+      destructive:
+        "bg-[#FF3B30] hover:bg-[#E0342B] active:bg-[#C92E26] text-white shadow-sm focus:ring-[#FF3B30]/40 border border-transparent",
     };
 
     const sizes = {
-      sm: "px-3 py-1.5 text-xs",
-      md: "px-4 py-2 text-sm",
-      lg: "px-6 py-3 text-base",
+      sm: "px-3.5 py-1.5 text-xs h-8",
+      md: "px-4.5 py-2 text-xs sm:text-sm h-10",
+      lg: "px-6 py-2.5 text-sm sm:text-base h-11",
     };
 
     return (
@@ -48,7 +52,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         {isLoading ? (
           <span className="flex items-center gap-2">
             <svg
-              className="animate-spin h-4 w-4 text-current"
+              className="animate-spin h-3.5 w-3.5 text-current"
               xmlns="http://www.w3.org/2000/svg"
               fill="none"
               viewBox="0 0 24 24"
@@ -60,14 +64,14 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
                 r="10"
                 stroke="currentColor"
                 strokeWidth="4"
-              ></circle>
+              />
               <path
                 className="opacity-75"
                 fill="currentColor"
                 d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-              ></path>
+              />
             </svg>
-            <span>Loading...</span>
+            <span>Processing...</span>
           </span>
         ) : (
           children

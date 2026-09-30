@@ -51,13 +51,13 @@ export const profileSubmitSchema = z
       errorMap: () => ({ message: "Student type must be REGULAR or D2D" }),
     }),
 
-    // 10th subject marks (6 subjects: Maths, Science, English, Social Science, Computer/P.T., Sanskrit)
+    // 10th subject marks (6 subjects: Maths, Science, English, Social Science, Sanskrit, Gujarati)
     mathsMarks: z.number().min(0).max(100),
     scienceMarks: z.number().min(0).max(100),
     englishMarks: z.number().min(0).max(100),
     socialScienceMarks: z.number().min(0).max(100),
-    computerPtMarks: z.number().min(0).max(100),
     sanskritMarks: z.number().min(0).max(100),
+    gujaratiMarks: z.number().min(0).max(100),
 
     // 12th subject marks (required for REGULAR, optional for D2D)
     twelfthEnglishMarks: marksSchema,
@@ -158,13 +158,13 @@ export const profileUpdateSchema = z
     branch: z.enum(BRANCHES).optional(),
     studentType: z.enum(["REGULAR", "D2D"]).optional(),
 
-    // 10th marks (6 subjects)
+    // 10th marks (6 subjects: Maths, Science, English, Social Science, Sanskrit, Gujarati)
     mathsMarks: marksSchema,
     scienceMarks: marksSchema,
     englishMarks: marksSchema,
     socialScienceMarks: marksSchema,
-    computerPtMarks: marksSchema,
     sanskritMarks: marksSchema,
+    gujaratiMarks: marksSchema,
     tenthPercentage: percentageSchema.optional(),
 
     // 12th marks

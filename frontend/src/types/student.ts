@@ -8,8 +8,8 @@ export interface TenthMarks {
   science: number;
   english: number;
   socialScience: number;
-  computerPt: number;
   sanskrit: number;
+  gujarati: number;
 }
 
 export interface TwelfthMarks {

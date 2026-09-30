@@ -94,8 +94,8 @@ export const exportStudents = async (filters = {}, format = "csv") => {
     { header: "10th Science", key: "scienceMarks", width: 12 },
     { header: "10th English", key: "englishMarks", width: 12 },
     { header: "10th Social Science", key: "socialScienceMarks", width: 16 },
-    { header: "10th Computer/PT", key: "computerPtMarks", width: 14 },
     { header: "10th Sanskrit", key: "sanskritMarks", width: 12 },
+    { header: "10th Gujarati", key: "gujaratiMarks", width: 12 },
 
     // 12th Subject Marks
     { header: "12th English", key: "twelfthEnglishMarks", width: 12 },
@@ -151,8 +151,8 @@ export const exportStudents = async (filters = {}, format = "csv") => {
       scienceMarks: student.scienceMarks ?? "",
       englishMarks: student.englishMarks ?? "",
       socialScienceMarks: student.socialScienceMarks ?? "",
-      computerPtMarks: student.computerPtMarks ?? "",
       sanskritMarks: student.sanskritMarks ?? "",
+      gujaratiMarks: student.gujaratiMarks ?? "",
 
       twelfthEnglishMarks: student.twelfthEnglishMarks ?? "",
       twelfthPhysicsMarks: student.twelfthPhysicsMarks ?? "",

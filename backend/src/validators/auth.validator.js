@@ -54,6 +54,7 @@ export const googleAuthSchema = z.object({
 
 // Profile completion after Google OAuth (or step 2 for normal registration)
 export const completeProfileSchema = z.object({
+  fullName: z.string().min(2).optional(),
   password: z
     .string()
     .min(6, "Password must be at least 6 characters")
@@ -83,13 +84,13 @@ export const completeProfileSchema = z.object({
     })
     .default("REGULAR"),
 
-  // 10th subject marks (6 subjects, all required for profile submission)
+  // 10th subject marks (6 subjects: Maths, Science, English, Social Science, Sanskrit, Gujarati)
   mathsMarks: z.number().min(0).max(100, "Marks cannot exceed 100"),
   scienceMarks: z.number().min(0).max(100, "Marks cannot exceed 100"),
   englishMarks: z.number().min(0).max(100, "Marks cannot exceed 100"),
   socialScienceMarks: z.number().min(0).max(100, "Marks cannot exceed 100"),
-  computerPtMarks: z.number().min(0).max(100, "Marks cannot exceed 100"),
   sanskritMarks: z.number().min(0).max(100, "Marks cannot exceed 100"),
+  gujaratiMarks: z.number().min(0).max(100, "Marks cannot exceed 100"),
 
   // 12th subject marks — required for REGULAR, optional for D2D
   twelfthEnglishMarks: z.number().min(0).max(100).optional().nullable(),

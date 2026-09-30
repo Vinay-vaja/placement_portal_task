@@ -14,7 +14,6 @@ import {
   LogOut,
   Menu,
   X,
-  CheckCircle2,
 } from "lucide-react";
 
 interface StudentLayoutProps {
@@ -28,39 +27,31 @@ export default function StudentLayout({ children }: StudentLayoutProps) {
 
   const navItems = [
     { label: "Academic Profile", href: "/student/profile", icon: User },
-    { label: "Campus Drives", href: "/student/drives", icon: Briefcase },
+    { label: "Recruitment Drives", href: "/student/drives", icon: Briefcase },
     { label: "My Applications", href: "/student/applications", icon: FileCheck },
   ];
 
   return (
     <RBACGuard allowedRoles={["STUDENT"]}>
-      <div className="min-h-screen bg-slate-50 flex flex-col">
-        {/* Top Navbar */}
-        <header className="sticky top-0 z-40 w-full border-b border-slate-200 bg-white shadow-xs">
-          <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-            {/* Brand Logo */}
-            <div className="flex items-center gap-8">
-              <Link href="/student/drives" className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600 text-white shadow-md shadow-blue-500/20">
-                  <GraduationCap className="h-6 w-6" />
+      <div className="min-h-screen bg-[#F5F5F7] flex flex-col selection:bg-[#0071E3]/20">
+        {/* Apple Translucent Top Bar */}
+        <header className="sticky top-0 z-40 w-full border-b border-black/[0.06] bg-[#FBFBFD]/80 backdrop-blur-xl">
+          <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4 sm:px-6">
+            {/* Brand Logo & Nav */}
+            <div className="flex items-center gap-7">
+              <Link href="/student/drives" className="flex items-center gap-2.5 transition-opacity hover:opacity-85">
+                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#0071E3] text-white shadow-sm">
+                  <GraduationCap className="h-4.5 w-4.5" />
                 </div>
                 <div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-base font-extrabold tracking-tight text-slate-900">
-                      LDCE Placement Portal
-                    </span>
-                    <span className="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-bold text-blue-700 border border-blue-200">
-                      STUDENT
-                    </span>
-                  </div>
-                  <p className="text-[11px] font-medium text-slate-500">
-                    L.D. College of Engineering, Ahmedabad
-                  </p>
+                  <span className="text-sm font-semibold tracking-tight text-[#1D1D1F]">
+                    LDCE Placements
+                  </span>
                 </div>
               </Link>
 
               {/* Desktop Nav Items */}
-              <nav className="hidden lg:flex items-center gap-1">
+              <nav className="hidden md:flex items-center gap-1">
                 {navItems.map((item) => {
                   const Icon = item.icon;
                   const isActive = pathname === item.href;
@@ -68,13 +59,13 @@ export default function StudentLayout({ children }: StudentLayoutProps) {
                     <Link
                       key={item.href}
                       href={item.href}
-                      className={`flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold transition-all ${
+                      className={`flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-medium transition-all ${
                         isActive
-                          ? "bg-blue-50 text-blue-600 font-bold"
-                          : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                          ? "bg-black/[0.06] text-[#0071E3]"
+                          : "text-[#86868B] hover:text-[#1D1D1F] hover:bg-black/[0.03]"
                       }`}
                     >
-                      <Icon className={`h-4 w-4 ${isActive ? "text-blue-600" : "text-slate-400"}`} />
+                      <Icon className={`h-3.5 w-3.5 ${isActive ? "text-[#0071E3]" : "text-[#86868B]"}`} />
                       <span>{item.label}</span>
                     </Link>
                   );
@@ -83,26 +74,23 @@ export default function StudentLayout({ children }: StudentLayoutProps) {
             </div>
 
             {/* Right Student Controls */}
-            <div className="hidden lg:flex items-center gap-4">
-              <div className="flex items-center gap-2.5 rounded-full bg-slate-100 py-1.5 px-3 border border-slate-200">
-                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-blue-600 text-white text-xs font-bold">
-                  <User className="h-4 w-4" />
+            <div className="hidden md:flex items-center gap-3">
+              <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-black/[0.04]">
+                <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[#0071E3] text-white text-[11px] font-medium">
+                  {user?.student?.fullName ? user.student.fullName.charAt(0).toUpperCase() : "S"}
                 </div>
-                <div className="text-left">
-                  <p className="text-xs font-bold text-slate-900 leading-tight truncate max-w-[140px]">
-                    {user?.student?.fullName || "Student User"}
-                  </p>
-                  <p className="text-[10px] font-medium text-slate-500 truncate max-w-[140px]">
-                    {user?.email}
-                  </p>
+                <div className="text-left text-xs leading-none">
+                  <span className="font-medium text-[#1D1D1F] block truncate max-w-[120px]">
+                    {user?.student?.fullName || "Student"}
+                  </span>
                 </div>
               </div>
 
               <Button
-                variant="outline"
+                variant="ghost"
                 size="sm"
                 onClick={logout}
-                className="gap-1.5 text-xs text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
+                className="gap-1.5 text-xs font-medium text-[#86868B] hover:text-[#FF3B30] h-8 px-2.5"
               >
                 <LogOut className="h-3.5 w-3.5" />
                 Sign Out
@@ -112,22 +100,22 @@ export default function StudentLayout({ children }: StudentLayoutProps) {
             {/* Mobile menu trigger */}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="lg:hidden p-2 rounded-lg text-slate-600 hover:bg-slate-100"
+              className="md:hidden p-1.5 text-[#1D1D1F]"
             >
-              {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+              {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </button>
           </div>
 
           {/* Mobile Drawer */}
           {mobileMenuOpen && (
-            <div className="lg:hidden border-t border-slate-200 bg-white px-4 pt-3 pb-6 space-y-3">
-              <div className="flex items-center gap-3 pb-3 border-b border-slate-100 px-2">
-                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-600 text-white font-bold">
-                  S
+            <div className="md:hidden border-b border-black/[0.06] bg-white px-4 pt-3 pb-5 space-y-3">
+              <div className="flex items-center gap-2.5 pb-3 border-b border-black/[0.06]">
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#0071E3] text-white font-medium text-xs">
+                  {user?.student?.fullName ? user.student.fullName.charAt(0).toUpperCase() : "S"}
                 </div>
                 <div>
-                  <p className="text-xs font-bold text-slate-900">{user?.student?.fullName || "Student"}</p>
-                  <p className="text-xs text-slate-500">{user?.email}</p>
+                  <p className="text-xs font-medium text-[#1D1D1F]">{user?.student?.fullName || "Student"}</p>
+                  <p className="text-[11px] text-[#86868B]">{user?.email}</p>
                 </div>
               </div>
 
@@ -140,8 +128,8 @@ export default function StudentLayout({ children }: StudentLayoutProps) {
                       key={item.href}
                       href={item.href}
                       onClick={() => setMobileMenuOpen(false)}
-                      className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-xs font-medium ${
-                        isActive ? "bg-blue-50 text-blue-600 font-bold" : "text-slate-700 hover:bg-slate-50"
+                      className={`flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium ${
+                        isActive ? "bg-black/[0.05] text-[#0071E3]" : "text-[#1D1D1F]"
                       }`}
                     >
                       <Icon className="h-4 w-4" />
@@ -159,7 +147,7 @@ export default function StudentLayout({ children }: StudentLayoutProps) {
                     setMobileMenuOpen(false);
                     logout();
                   }}
-                  className="w-full justify-center gap-2 text-xs text-red-600 border-red-200"
+                  className="w-full justify-center gap-2 text-xs text-[#FF3B30] h-9"
                 >
                   <LogOut className="h-4 w-4" /> Sign Out
                 </Button>
@@ -169,12 +157,12 @@ export default function StudentLayout({ children }: StudentLayoutProps) {
         </header>
 
         {/* Page Content */}
-        <main className="flex-1 py-8 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full">
+        <main className="flex-1 py-6 px-4 sm:px-6 max-w-7xl mx-auto w-full">
           {children}
         </main>
 
         {/* Footer */}
-        <footer className="border-t border-slate-200 bg-white py-4 text-center text-xs text-slate-500">
+        <footer className="border-t border-black/[0.06] bg-white/50 py-4 text-center text-xs text-[#86868B]">
           Training & Placement Cell • L.D. College of Engineering, Ahmedabad
         </footer>
       </div>

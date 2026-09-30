@@ -6,8 +6,12 @@ export const studentService = {
     return apiClient.get<ApiResponse<StudentProfile>>("/students/me");
   },
 
-  completeProfile: async (data: Partial<StudentProfile>): Promise<ApiResponse<StudentProfile>> => {
+  completeProfile: async (data: any): Promise<ApiResponse<StudentProfile>> => {
     return apiClient.post<ApiResponse<StudentProfile>>("/students/complete-profile", data);
+  },
+
+  submitProfile: async (data: any): Promise<ApiResponse<StudentProfile>> => {
+    return apiClient.post<ApiResponse<StudentProfile>>("/students/profile", data);
   },
 
   addOrUpdateSpi: async (payload: { semester: number; spi: number }): Promise<ApiResponse<SemesterSpi[]>> => {

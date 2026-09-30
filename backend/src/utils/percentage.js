@@ -5,7 +5,7 @@
 
 /**
  * Calculate 10th percentage from individual subject marks
- * 6 Subjects: Maths, Science, English, Social Science, Computer/P.T., Sanskrit (Total: 600)
+ * 6 Subjects: Maths, Science, English, Social Science, Sanskrit, Gujarati (Total: 600)
  *
  * @param {Object} marks - subject marks object
  * @returns {number} calculated percentage (0 if no marks provided)
@@ -16,8 +16,8 @@ export const calculateTenthPercentage = (marks) => {
     marks.scienceMarks,
     marks.englishMarks,
     marks.socialScienceMarks,
-    marks.computerPtMarks,
     marks.sanskritMarks,
+    marks.gujaratiMarks,
   ];
 
   const validMarks = subjects.filter(

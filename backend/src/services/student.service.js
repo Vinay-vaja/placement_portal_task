@@ -21,8 +21,8 @@ const safeStudentSelect = {
   scienceMarks: true,
   englishMarks: true,
   socialScienceMarks: true,
-  computerPtMarks: true,
   sanskritMarks: true,
+  gujaratiMarks: true,
   tenthPercentage: true,
 
   // 12th marks
@@ -128,8 +128,8 @@ export const submitStudentProfile = async (userId, profileData) => {
     scienceMarks,
     englishMarks,
     socialScienceMarks,
-    computerPtMarks,
     sanskritMarks,
+    gujaratiMarks,
     twelfthEnglishMarks,
     twelfthPhysicsMarks,
     twelfthMathsMarks,
@@ -149,8 +149,8 @@ export const submitStudentProfile = async (userId, profileData) => {
     scienceMarks,
     englishMarks,
     socialScienceMarks,
-    computerPtMarks,
     sanskritMarks,
+    gujaratiMarks,
   });
 
   const twelfthPercentage =
@@ -177,8 +177,8 @@ export const submitStudentProfile = async (userId, profileData) => {
     scienceMarks,
     englishMarks,
     socialScienceMarks,
-    computerPtMarks,
     sanskritMarks,
+    gujaratiMarks,
     tenthPercentage,
 
     // 12th marks (only for REGULAR)
@@ -257,8 +257,8 @@ export const updateStudentProfile = async (userId, updateData, isTpo = false) =>
     payload.scienceMarks !== undefined ||
     payload.englishMarks !== undefined ||
     payload.socialScienceMarks !== undefined ||
-    payload.computerPtMarks !== undefined ||
-    payload.sanskritMarks !== undefined
+    payload.sanskritMarks !== undefined ||
+    payload.gujaratiMarks !== undefined
   ) {
     // Merge existing marks with updates
     const mergedTenth = {
@@ -266,8 +266,8 @@ export const updateStudentProfile = async (userId, updateData, isTpo = false) =>
       scienceMarks: payload.scienceMarks ?? student.scienceMarks,
       englishMarks: payload.englishMarks ?? student.englishMarks,
       socialScienceMarks: payload.socialScienceMarks ?? student.socialScienceMarks,
-      computerPtMarks: payload.computerPtMarks ?? student.computerPtMarks,
       sanskritMarks: payload.sanskritMarks ?? student.sanskritMarks,
+      gujaratiMarks: payload.gujaratiMarks ?? student.gujaratiMarks,
     };
     payload.tenthPercentage = calculateTenthPercentage(mergedTenth);
   }
@@ -340,16 +340,16 @@ export const updateStudentById = async (studentId, updateData) => {
     payload.scienceMarks !== undefined ||
     payload.englishMarks !== undefined ||
     payload.socialScienceMarks !== undefined ||
-    payload.computerPtMarks !== undefined ||
-    payload.sanskritMarks !== undefined
+    payload.sanskritMarks !== undefined ||
+    payload.gujaratiMarks !== undefined
   ) {
     const mergedTenth = {
       mathsMarks: payload.mathsMarks ?? student.mathsMarks,
       scienceMarks: payload.scienceMarks ?? student.scienceMarks,
       englishMarks: payload.englishMarks ?? student.englishMarks,
       socialScienceMarks: payload.socialScienceMarks ?? student.socialScienceMarks,
-      computerPtMarks: payload.computerPtMarks ?? student.computerPtMarks,
       sanskritMarks: payload.sanskritMarks ?? student.sanskritMarks,
+      gujaratiMarks: payload.gujaratiMarks ?? student.gujaratiMarks,
     };
     payload.tenthPercentage = calculateTenthPercentage(mergedTenth);
   }
