@@ -23,6 +23,13 @@ export const tpoService = {
     });
   },
 
+  updateStudent: async (
+    studentId: string,
+    payload: Partial<StudentProfile>
+  ): Promise<ApiResponse<StudentProfile>> => {
+    return apiClient.put<ApiResponse<StudentProfile>>(`/tpo/students/${studentId}`, payload);
+  },
+
   verifyStudent: async (
     studentId: string,
     status: "PENDING" | "VERIFIED" | "REJECTED",

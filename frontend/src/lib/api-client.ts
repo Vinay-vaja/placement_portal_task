@@ -89,9 +89,69 @@ async function request<T>(
   return data as T;
 }
 
+async function requestBlob(
+  endpoint: string,
+  options: RequestOptions = {}
+): Promise<Blob> {
+  const { params, headers, ...customConfig } = options;
+
+  let url = `${env.NEXT_PUBLIC_API_URL}${endpoint.startsWith("/") ? endpoint : `/${endpoint}`}`;
+
+  if (params) {
+    const searchParams = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined) {
+        searchParams.append(key, String(value));
+      }
+    });
+    const queryString = searchParams.toString();
+    if (queryString) {
+      url += `?${queryString}`;
+    }
+  }
+
+  const authHeaders: Record<string, string> = {};
+  if (typeof window !== "undefined") {
+    const token = useAuthStore.getState().token;
+    if (token) {
+      authHeaders["Authorization"] = `Bearer ${token}`;
+    }
+  }
+
+  const config: RequestInit = {
+    headers: {
+      ...authHeaders,
+      ...headers,
+    },
+    ...customConfig,
+  };
+
+  const response = await fetch(url, config);
+
+  if (!response.ok) {
+    if (response.status === 401 && typeof window !== "undefined") {
+      const currentPath = window.location.pathname;
+      if (!currentPath.includes("/login") && !currentPath.includes("/register")) {
+        useAuthStore.getState().logout();
+        window.location.href = "/login";
+      }
+    }
+    let errorMessage = `HTTP error! status: ${response.status}`;
+    try {
+      const errorJson = await response.json();
+      errorMessage = errorJson.message || errorJson.error || errorMessage;
+    } catch {}
+    throw new ApiClientError(errorMessage, response.status);
+  }
+
+  return await response.blob();
+}
+
 export const apiClient = {
   get: <T>(endpoint: string, options?: RequestOptions) =>
     request<T>(endpoint, { ...options, method: "GET" }),
+  getBlob: (endpoint: string, options?: RequestOptions) =>
+    requestBlob(endpoint, { ...options, method: "GET" }),
   post: <T>(endpoint: string, body?: unknown, options?: RequestOptions) =>
     request<T>(endpoint, {
       ...options,
@@ -113,3 +173,4 @@ export const apiClient = {
   delete: <T>(endpoint: string, options?: RequestOptions) =>
     request<T>(endpoint, { ...options, method: "DELETE" }),
 };
+

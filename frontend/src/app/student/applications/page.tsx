@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { studentService } from "@/services/student.service";
 import { Application } from "@/types";
 import { Card, CardContent } from "@/components/ui/card";
@@ -16,9 +16,37 @@ import {
   ChevronRight,
 } from "lucide-react";
 
+type FilterStatus = "ALL" | "UNDER_REVIEW" | "SELECTED" | "NOT_SELECTED";
+
+function TableCompanyLogo({ src, alt }: { src?: string | null; alt: string }) {
+  const [hasError, setHasError] = useState(false);
+
+  useEffect(() => {
+    setHasError(false);
+  }, [src]);
+
+  if (!src || hasError) {
+    return (
+      <div className="flex h-7 w-7 items-center justify-center rounded-xl bg-[#0071E3]/10 text-[#0071E3] shrink-0">
+        <Building2 className="h-4 w-4" />
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={src}
+      alt={alt}
+      className="h-8 w-8 rounded-xl object-contain shrink-0"
+      onError={() => setHasError(true)}
+    />
+  );
+}
+
 export default function StudentApplicationsPage() {
   const [applications, setApplications] = useState<Application[]>([]);
   const [selectedApp, setSelectedApp] = useState<Application | null>(null);
+  const [activeFilter, setActiveFilter] = useState<FilterStatus>("ALL");
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -46,7 +74,29 @@ export default function StudentApplicationsPage() {
     fetchApplications();
   }, []);
 
-  const appList = Array.isArray(applications) ? applications : [];
+  const appList = useMemo(() => (Array.isArray(applications) ? applications : []), [applications]);
+
+  const counts = useMemo(() => {
+    return {
+      all: appList.length,
+      underReview: appList.filter((a) => a.status === "APPLIED" || a.status === "SHORTLISTED").length,
+      selected: appList.filter((a) => a.status === "SELECTED").length,
+      notSelected: appList.filter((a) => a.status === "REJECTED").length,
+    };
+  }, [appList]);
+
+  const filteredApps = useMemo(() => {
+    if (activeFilter === "UNDER_REVIEW") {
+      return appList.filter((a) => a.status === "APPLIED" || a.status === "SHORTLISTED");
+    }
+    if (activeFilter === "SELECTED") {
+      return appList.filter((a) => a.status === "SELECTED");
+    }
+    if (activeFilter === "NOT_SELECTED") {
+      return appList.filter((a) => a.status === "REJECTED");
+    }
+    return appList;
+  }, [appList, activeFilter]);
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto py-4 px-2 sm:px-4">
@@ -74,6 +124,56 @@ export default function StudentApplicationsPage() {
         </div>
       )}
 
+      {/* Filter Tabs */}
+      {!isLoading && appList.length > 0 && (
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs">
+          <button
+            type="button"
+            onClick={() => setActiveFilter("ALL")}
+            className={`px-4 py-2 rounded-2xl font-semibold transition-all whitespace-nowrap ${
+              activeFilter === "ALL"
+                ? "bg-[#0071E3] text-white shadow-sm"
+                : "bg-white text-[#86868B] hover:text-[#1D1D1F] hover:bg-[#F5F5F7] border border-black/[0.06]"
+            }`}
+          >
+            All ({counts.all})
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveFilter("UNDER_REVIEW")}
+            className={`px-4 py-2 rounded-2xl font-semibold transition-all whitespace-nowrap ${
+              activeFilter === "UNDER_REVIEW"
+                ? "bg-[#0071E3] text-white shadow-sm"
+                : "bg-white text-[#86868B] hover:text-[#1D1D1F] hover:bg-[#F5F5F7] border border-black/[0.06]"
+            }`}
+          >
+            Under Review ({counts.underReview})
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveFilter("SELECTED")}
+            className={`px-4 py-2 rounded-2xl font-semibold transition-all whitespace-nowrap ${
+              activeFilter === "SELECTED"
+                ? "bg-[#0071E3] text-white shadow-sm"
+                : "bg-white text-[#86868B] hover:text-[#1D1D1F] hover:bg-[#F5F5F7] border border-black/[0.06]"
+            }`}
+          >
+            Selected ({counts.selected})
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveFilter("NOT_SELECTED")}
+            className={`px-4 py-2 rounded-2xl font-semibold transition-all whitespace-nowrap ${
+              activeFilter === "NOT_SELECTED"
+                ? "bg-[#0071E3] text-white shadow-sm"
+                : "bg-white text-[#86868B] hover:text-[#1D1D1F] hover:bg-[#F5F5F7] border border-black/[0.06]"
+            }`}
+          >
+            Not Selected ({counts.notSelected})
+          </button>
+        </div>
+      )}
+
       <Card className="rounded-3xl border border-black/[0.08] bg-white shadow-[0_2px_16px_rgba(0,0,0,0.03)] overflow-hidden">
         <CardContent className="p-0">
           {isLoading ? (
@@ -86,6 +186,22 @@ export default function StudentApplicationsPage() {
               <h3 className="text-sm font-semibold text-[#1D1D1F]">No Applications Submitted Yet</h3>
               <p className="text-xs text-[#86868B] max-w-sm mx-auto">
                 Visit the &quot;Recruitment Drives&quot; tab to explore open placement opportunities and apply.
+              </p>
+            </div>
+          ) : filteredApps.length === 0 ? (
+            <div className="p-12 text-center space-y-3">
+              {activeFilter === "SELECTED" ? (
+                <Award className="mx-auto h-10 w-10 text-[#A1A1A6]" />
+              ) : activeFilter === "NOT_SELECTED" ? (
+                <XCircle className="mx-auto h-10 w-10 text-[#A1A1A6]" />
+              ) : (
+                <Clock className="mx-auto h-10 w-10 text-[#A1A1A6]" />
+              )}
+              <h3 className="text-sm font-semibold text-[#1D1D1F]">
+                No {activeFilter === "UNDER_REVIEW" ? "Under Review" : activeFilter === "SELECTED" ? "Selected" : "Not Selected"} Applications
+              </h3>
+              <p className="text-xs text-[#86868B] max-w-sm mx-auto">
+                You currently have no applications matching this status filter.
               </p>
             </div>
           ) : (
@@ -101,7 +217,7 @@ export default function StudentApplicationsPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-black/[0.04] text-xs text-[#1D1D1F]">
-                  {appList.map((app) => {
+                  {filteredApps.map((app) => {
                     const companyTitle = app.drive?.company?.name || app.drive?.companyName || "Company";
                     const roleTitle = app.drive?.role || app.drive?.jobRole || "Engineering Role";
                     const ctcDisplay = app.drive?.ctcMax
@@ -121,17 +237,7 @@ export default function StudentApplicationsPage() {
                       >
                         <td className="py-3.5 px-4 font-semibold text-[#1D1D1F]">
                           <div className="flex items-center gap-2.5">
-                            {app.drive?.company?.imageUrl ? (
-                              <img
-                                src={app.drive.company.imageUrl}
-                                alt={companyTitle}
-                                className="h-7 w-7 rounded-xl object-contain border border-black/[0.08] bg-white p-0.5 shrink-0"
-                              />
-                            ) : (
-                              <div className="flex h-7 w-7 items-center justify-center rounded-xl bg-[#0071E3]/10 text-[#0071E3] shrink-0">
-                                <Building2 className="h-4 w-4" />
-                              </div>
-                            )}
+                            <TableCompanyLogo src={app.drive?.company?.imageUrl} alt={companyTitle} />
                             <span className="group-hover:text-[#0071E3] transition-colors">
                               {companyTitle}
                             </span>
@@ -186,3 +292,4 @@ export default function StudentApplicationsPage() {
     </div>
   );
 }
+

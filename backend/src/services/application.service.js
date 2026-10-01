@@ -1,6 +1,8 @@
+import http from "http";
+import https from "https";
 import prisma from "../config/prisma.js";
 import { checkStudentEligibility } from "./eligibility.service.js";
-import { uploadPdfToCloudinary } from "../config/cloudinary.js";
+import cloudinary, { uploadPdfToCloudinary } from "../config/cloudinary.js";
 import { parsePagination, buildPaginatedResponse, parseSorting } from "../utils/pagination.js";
 
 /**
@@ -504,3 +506,98 @@ export const bulkMarkAttendance = async (driveId, studentIds, isPresent) => {
     studentIds: applications.map((a) => a.studentId),
   };
 };
+
+/**
+ * Stream application resume PDF securely to the client.
+ *
+ * Authorization Rules:
+ * - CENTRAL_TPO can view applicant resumes.
+ * - Student can view their own resume (application.student.userId === user.userId).
+ * - Other users / students get 403 Forbidden.
+ *
+ * @param {string} applicationId
+ * @param {Object} user - { userId, role }
+ * @param {Object} res - Express response object
+ */
+export const getResumeStream = async (applicationId, user, res) => {
+  const application = await prisma.application.findUnique({
+    where: { id: applicationId },
+    include: {
+      student: { select: { id: true, userId: true } },
+    },
+  });
+
+  if (!application) {
+    const error = new Error("Application not found");
+    error.statusCode = 404;
+    throw error;
+  }
+
+  if (!application.resumeUrl) {
+    const error = new Error("No resume uploaded for this application");
+    error.statusCode = 404;
+    throw error;
+  }
+
+  // Authorization check
+  const isStudentOwner =
+    user.role === "STUDENT" && application.student.userId === user.userId;
+  const isCentralTpo = user.role === "CENTRAL_TPO";
+
+  if (!isStudentOwner && !isCentralTpo) {
+    const error = new Error("Access denied: You are not authorized to view this resume");
+    error.statusCode = 403;
+    throw error;
+  }
+
+  // Set response headers for inline PDF rendering
+  res.setHeader("Content-Type", "application/pdf");
+  res.setHeader("Content-Disposition", 'inline; filename="Student_Resume.pdf"');
+  res.setHeader("Cache-Control", "private, no-cache, no-store, must-revalidate");
+
+  // Parse Cloudinary URL parameters to build authenticated private download URL
+  const urlParts = application.resumeUrl.split("/upload/");
+  if (urlParts.length !== 2) {
+    const error = new Error("Invalid resume URL structure");
+    error.statusCode = 500;
+    throw error;
+  }
+
+  const isRaw = urlParts[0].endsWith("/raw");
+  const resourceType = isRaw ? "raw" : "image";
+  const pathAfterUpload = urlParts[1].replace(/^v\d+\//, "");
+  const extMatch = pathAfterUpload.match(/\.([^.]+)$/);
+  const format = isRaw ? (extMatch ? extMatch[1] : "") : (extMatch ? extMatch[1] : "pdf");
+  const publicId = isRaw ? pathAfterUpload : pathAfterUpload.replace(/\.[^.]+$/, "");
+
+  // Generate authenticated private download URL using Cloudinary SDK
+  const downloadUrl = cloudinary.utils.private_download_url(publicId, format, {
+    resource_type: resourceType,
+    type: "upload",
+    attachment: false,
+  });
+
+  return new Promise((resolve, reject) => {
+    const client = downloadUrl.startsWith("https") ? https : http;
+
+    const req = client.get(downloadUrl, (cloudinaryRes) => {
+      if (cloudinaryRes.statusCode === 200) {
+        cloudinaryRes.pipe(res);
+        return resolve();
+      }
+      const err = new Error(`Cloudinary delivery failed with status ${cloudinaryRes.statusCode}`);
+      err.statusCode = cloudinaryRes.statusCode;
+      reject(err);
+    });
+
+    req.on("error", (err) => {
+      if (!res.headersSent) {
+        const error = new Error("Failed to retrieve resume document from storage");
+        error.statusCode = 500;
+        reject(error);
+      }
+    });
+  });
+};
+
+

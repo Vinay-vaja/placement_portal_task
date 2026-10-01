@@ -1,8 +1,9 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Application } from "@/types";
 import { Button } from "@/components/ui/button";
+import { apiClient } from "@/lib/api-client";
 import {
   X,
   Building2,
@@ -16,7 +17,33 @@ import {
   XCircle,
   Clock,
   BookOpen,
+  Loader2,
 } from "lucide-react";
+
+function ModalCompanyLogo({ src, alt }: { src?: string | null; alt: string }) {
+  const [hasError, setHasError] = useState(false);
+
+  useEffect(() => {
+    setHasError(false);
+  }, [src]);
+
+  if (!src || hasError) {
+    return (
+      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#0071E3]/10 text-[#0071E3] shrink-0">
+        <Building2 className="h-6 w-6" />
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={src}
+      alt={alt}
+      className="h-14 w-14 rounded-2xl object-contain shrink-0"
+      onError={() => setHasError(true)}
+    />
+  );
+}
 
 interface ApplicationDetailModalProps {
   application: Application | null;
@@ -27,7 +54,23 @@ export function ApplicationDetailModal({
   application,
   onClose,
 }: ApplicationDetailModalProps) {
+  const [loadingResume, setLoadingResume] = useState(false);
+
   if (!application) return null;
+
+  const handleViewResume = async () => {
+    if (!application?.id) return;
+    try {
+      setLoadingResume(true);
+      const blob = await apiClient.getBlob(`/applications/${application.id}/resume`);
+      const blobUrl = URL.createObjectURL(blob);
+      window.open(blobUrl, "_blank");
+    } catch (err: any) {
+      alert(err.message || "Failed to load resume PDF");
+    } finally {
+      setLoadingResume(false);
+    }
+  };
 
   const drive = (application.drive || {}) as any;
   const company = (drive.company || {}) as any;
@@ -70,20 +113,7 @@ export function ApplicationDetailModal({
 
         {/* Modal Header */}
         <div className="flex items-start gap-4">
-          {company.imageUrl ? (
-            <img
-              src={company.imageUrl}
-              alt={companyTitle}
-              className="h-14 w-14 rounded-2xl object-contain border border-black/[0.08] bg-white p-1.5 shrink-0"
-              onError={(e) => {
-                (e.target as HTMLElement).style.display = "none";
-              }}
-            />
-          ) : (
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#0071E3]/10 text-[#0071E3] shrink-0">
-              <Building2 className="h-7 w-7" />
-            </div>
-          )}
+          <ModalCompanyLogo src={company.imageUrl} alt={companyTitle} />
 
           <div className="space-y-1 min-w-0 flex-1">
             <div className="flex flex-wrap items-center justify-between gap-2">
@@ -190,15 +220,23 @@ export function ApplicationDetailModal({
                 </span>
               </div>
             </div>
-            {application.resumeUrl ? (
-              <a
-                href={application.resumeUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-[#0071E3] text-white text-xs font-medium hover:bg-[#0077ED] transition-colors shadow-sm"
+            {application.id || application.resumeUrl ? (
+              <button
+                type="button"
+                onClick={handleViewResume}
+                disabled={loadingResume}
+                className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-[#0071E3] text-white text-xs font-medium hover:bg-[#0077ED] transition-colors shadow-sm disabled:opacity-50"
               >
-                View Resume PDF <ExternalLink className="h-3.5 w-3.5" />
-              </a>
+                {loadingResume ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading PDF...
+                  </>
+                ) : (
+                  <>
+                    View Resume PDF <ExternalLink className="h-3.5 w-3.5" />
+                  </>
+                )}
+              </button>
             ) : (
               <span className="text-xs font-medium text-[#86868B]">
                 Resume File Attached

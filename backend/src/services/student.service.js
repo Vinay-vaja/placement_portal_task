@@ -328,7 +328,20 @@ export const updateStudentById = async (studentId, updateData) => {
     throw error;
   }
 
-  const payload = { ...updateData };
+  // Extract SPIs if passed in updateData
+  const { spis, semesterSpis, ...studentFields } = updateData;
+  const payload = { ...studentFields };
+
+  // Remove derived/system fields to prevent manual override
+  delete payload.tenthPercentage;
+  delete payload.twelfthPercentage;
+  delete payload.cpi;
+  delete payload.cgpa;
+  delete payload.verificationStatus;
+  delete payload.isPlaced;
+  delete payload.isDismissed;
+  delete payload.dismissalReason;
+  delete payload.user;
 
   if (payload.dob) {
     payload.dob = new Date(payload.dob);
@@ -344,14 +357,22 @@ export const updateStudentById = async (studentId, updateData) => {
     payload.gujaratiMarks !== undefined
   ) {
     const mergedTenth = {
-      mathsMarks: payload.mathsMarks ?? student.mathsMarks,
-      scienceMarks: payload.scienceMarks ?? student.scienceMarks,
-      englishMarks: payload.englishMarks ?? student.englishMarks,
-      socialScienceMarks: payload.socialScienceMarks ?? student.socialScienceMarks,
-      sanskritMarks: payload.sanskritMarks ?? student.sanskritMarks,
-      gujaratiMarks: payload.gujaratiMarks ?? student.gujaratiMarks,
+      mathsMarks: payload.mathsMarks !== undefined ? (payload.mathsMarks !== null && payload.mathsMarks !== "" ? Number(payload.mathsMarks) : null) : student.mathsMarks,
+      scienceMarks: payload.scienceMarks !== undefined ? (payload.scienceMarks !== null && payload.scienceMarks !== "" ? Number(payload.scienceMarks) : null) : student.scienceMarks,
+      englishMarks: payload.englishMarks !== undefined ? (payload.englishMarks !== null && payload.englishMarks !== "" ? Number(payload.englishMarks) : null) : student.englishMarks,
+      socialScienceMarks: payload.socialScienceMarks !== undefined ? (payload.socialScienceMarks !== null && payload.socialScienceMarks !== "" ? Number(payload.socialScienceMarks) : null) : student.socialScienceMarks,
+      sanskritMarks: payload.sanskritMarks !== undefined ? (payload.sanskritMarks !== null && payload.sanskritMarks !== "" ? Number(payload.sanskritMarks) : null) : student.sanskritMarks,
+      gujaratiMarks: payload.gujaratiMarks !== undefined ? (payload.gujaratiMarks !== null && payload.gujaratiMarks !== "" ? Number(payload.gujaratiMarks) : null) : student.gujaratiMarks,
     };
     payload.tenthPercentage = calculateTenthPercentage(mergedTenth);
+
+    // Cast payload marks to Float or null
+    payload.mathsMarks = mergedTenth.mathsMarks;
+    payload.scienceMarks = mergedTenth.scienceMarks;
+    payload.englishMarks = mergedTenth.englishMarks;
+    payload.socialScienceMarks = mergedTenth.socialScienceMarks;
+    payload.sanskritMarks = mergedTenth.sanskritMarks;
+    payload.gujaratiMarks = mergedTenth.gujaratiMarks;
   }
 
   if (
@@ -362,19 +383,63 @@ export const updateStudentById = async (studentId, updateData) => {
     payload.twelfthComputerMarks !== undefined
   ) {
     const mergedTwelfth = {
-      twelfthEnglishMarks: payload.twelfthEnglishMarks ?? student.twelfthEnglishMarks,
-      twelfthPhysicsMarks: payload.twelfthPhysicsMarks ?? student.twelfthPhysicsMarks,
-      twelfthMathsMarks: payload.twelfthMathsMarks ?? student.twelfthMathsMarks,
-      twelfthChemistryMarks: payload.twelfthChemistryMarks ?? student.twelfthChemistryMarks,
-      twelfthComputerMarks: payload.twelfthComputerMarks ?? student.twelfthComputerMarks,
+      twelfthEnglishMarks: payload.twelfthEnglishMarks !== undefined ? (payload.twelfthEnglishMarks !== null && payload.twelfthEnglishMarks !== "" ? Number(payload.twelfthEnglishMarks) : null) : student.twelfthEnglishMarks,
+      twelfthPhysicsMarks: payload.twelfthPhysicsMarks !== undefined ? (payload.twelfthPhysicsMarks !== null && payload.twelfthPhysicsMarks !== "" ? Number(payload.twelfthPhysicsMarks) : null) : student.twelfthPhysicsMarks,
+      twelfthMathsMarks: payload.twelfthMathsMarks !== undefined ? (payload.twelfthMathsMarks !== null && payload.twelfthMathsMarks !== "" ? Number(payload.twelfthMathsMarks) : null) : student.twelfthMathsMarks,
+      twelfthChemistryMarks: payload.twelfthChemistryMarks !== undefined ? (payload.twelfthChemistryMarks !== null && payload.twelfthChemistryMarks !== "" ? Number(payload.twelfthChemistryMarks) : null) : student.twelfthChemistryMarks,
+      twelfthComputerMarks: payload.twelfthComputerMarks !== undefined ? (payload.twelfthComputerMarks !== null && payload.twelfthComputerMarks !== "" ? Number(payload.twelfthComputerMarks) : null) : student.twelfthComputerMarks,
     };
     payload.twelfthPercentage = calculateTwelfthPercentage(mergedTwelfth);
+
+    payload.twelfthEnglishMarks = mergedTwelfth.twelfthEnglishMarks;
+    payload.twelfthPhysicsMarks = mergedTwelfth.twelfthPhysicsMarks;
+    payload.twelfthMathsMarks = mergedTwelfth.twelfthMathsMarks;
+    payload.twelfthChemistryMarks = mergedTwelfth.twelfthChemistryMarks;
+    payload.twelfthComputerMarks = mergedTwelfth.twelfthComputerMarks;
   }
 
-  const updatedStudent = await prisma.student.update({
-    where: { id: studentId },
-    data: payload,
-    select: safeStudentSelect,
+  if (payload.d2dCgpa !== undefined && payload.d2dCgpa !== null && payload.d2dCgpa !== "") {
+    payload.d2dCgpa = Number(payload.d2dCgpa);
+  }
+  if (payload.d2dAcpcRank !== undefined && payload.d2dAcpcRank !== null && payload.d2dAcpcRank !== "") {
+    payload.d2dAcpcRank = Number(payload.d2dAcpcRank);
+  }
+
+  // Preserve profileLocked === true
+  payload.profileLocked = true;
+
+  const rawSpis = spis || semesterSpis;
+
+  const updatedStudent = await prisma.$transaction(async (tx) => {
+    if (Array.isArray(rawSpis)) {
+      for (const s of rawSpis) {
+        if (s.semester && s.spi !== undefined && s.spi !== null && s.spi !== "") {
+          const numSpi = Number(s.spi);
+          if (!isNaN(numSpi) && numSpi >= 0 && numSpi <= 10) {
+            await tx.semesterSpi.upsert({
+              where: {
+                studentId_semester: {
+                  studentId: student.id,
+                  semester: Number(s.semester),
+                },
+              },
+              update: { spi: numSpi },
+              create: {
+                studentId: student.id,
+                semester: Number(s.semester),
+                spi: numSpi,
+              },
+            });
+          }
+        }
+      }
+    }
+
+    return tx.student.update({
+      where: { id: studentId },
+      data: payload,
+      select: safeStudentSelect,
+    });
   });
 
   return enrichWithComputedFields(updatedStudent);
@@ -395,6 +460,9 @@ export const getAllStudents = async (filters = {}, pagination = {}) => {
   }
   if (filters.profileLocked !== undefined) {
     where.profileLocked = filters.profileLocked === "true" || filters.profileLocked === true;
+  } else {
+    // By default, TPO directory and approval lists only display students who have locked/submitted their profiles
+    where.profileLocked = true;
   }
   if (filters.isPlaced !== undefined) {
     where.isPlaced = filters.isPlaced === "true" || filters.isPlaced === true;
@@ -498,6 +566,12 @@ export const upsertSpi = async (userId, semester, spi) => {
     throw error;
   }
 
+  if (student.profileLocked) {
+    const error = new Error("Profile is locked and SPIs cannot be edited");
+    error.statusCode = 403;
+    throw error;
+  }
+
   const result = await prisma.semesterSpi.upsert({
     where: {
       studentId_semester: {
@@ -524,6 +598,12 @@ export const bulkUpsertSpi = async (userId, spis) => {
   if (!student) {
     const error = new Error("Student profile not found");
     error.statusCode = 404;
+    throw error;
+  }
+
+  if (student.profileLocked) {
+    const error = new Error("Profile is locked and SPIs cannot be edited");
+    error.statusCode = 403;
     throw error;
   }
 

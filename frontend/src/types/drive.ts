@@ -40,6 +40,8 @@ export interface RecruitmentDrive {
   minCpi?: number;
   minCgpa?: number;
   maxActiveBacklogs?: number;
+  backlogsAllowed?: boolean;
+  roundDetails?: { rounds: { name: string; date?: string; time?: string; venue?: string }[] } | null | any;
   
   // Rules & Overrides
   maxSelectionsPerStudent?: number;

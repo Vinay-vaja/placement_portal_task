@@ -74,6 +74,14 @@ export const createDriveSchema = z
       .optional()
       .nullable(),
 
+    companyLogo: z
+      .string()
+      .trim()
+      .url("Invalid logo URL")
+      .or(z.literal(""))
+      .optional()
+      .nullable(),
+
     status: z.enum(["ACTIVE", "CLOSED"]).default("ACTIVE"),
     maxSelectionsPerStudent: z.coerce.number().int().min(1).default(1),
     tpoAllowMultiple: z.boolean().default(false),
@@ -107,6 +115,13 @@ export const createDriveSchema = z
 export const updateDriveSchema = z
   .object({
     companyId: z.string().min(1).optional(),
+    companyLogo: z
+      .string()
+      .trim()
+      .url("Invalid logo URL")
+      .or(z.literal(""))
+      .optional()
+      .nullable(),
     role: z.string().min(2).trim().optional(),
     jobRole: z.string().min(2).trim().optional(),
     description: z.string().optional().nullable(),
