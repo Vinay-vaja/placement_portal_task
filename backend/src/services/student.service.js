@@ -395,6 +395,9 @@ export const getAllStudents = async (filters = {}, pagination = {}) => {
   }
   if (filters.profileLocked !== undefined) {
     where.profileLocked = filters.profileLocked === "true" || filters.profileLocked === true;
+  } else {
+    // By default, TPO directory and approval lists only display students who have locked/submitted their profiles
+    where.profileLocked = true;
   }
   if (filters.isPlaced !== undefined) {
     where.isPlaced = filters.isPlaced === "true" || filters.isPlaced === true;

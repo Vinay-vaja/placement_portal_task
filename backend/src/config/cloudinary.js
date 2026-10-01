@@ -65,7 +65,7 @@ export const uploadPdfToCloudinary = (
     const uploadStream = cloudinary.uploader.upload_stream(
       {
         folder,
-        resource_type: "raw",
+        resource_type: "auto",
         format: "pdf",
       },
       (error, result) => {

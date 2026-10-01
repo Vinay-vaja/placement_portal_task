@@ -22,25 +22,26 @@ export const getDashboardStats = async () => {
     attendanceStats,
     placedStudentDetails,
   ] = await Promise.all([
-    // Student counts
-    prisma.student.count(),
-    prisma.student.count({ where: { verificationStatus: "VERIFIED" } }),
-    prisma.student.count({ where: { verificationStatus: "PENDING" } }),
-    prisma.student.count({ where: { verificationStatus: "REJECTED" } }),
-    prisma.student.count({ where: { isPlaced: true } }),
-    prisma.student.count({ where: { isDismissed: true } }),
+    // Student counts (filtered by profileLocked: true so draft/unlocked accounts do not inflate enrolled stats)
+    prisma.student.count({ where: { profileLocked: true } }),
+    prisma.student.count({ where: { verificationStatus: "VERIFIED", profileLocked: true } }),
+    prisma.student.count({ where: { verificationStatus: "PENDING", profileLocked: true } }),
+    prisma.student.count({ where: { verificationStatus: "REJECTED", profileLocked: true } }),
+    prisma.student.count({ where: { isPlaced: true, profileLocked: true } }),
+    prisma.student.count({ where: { isDismissed: true, profileLocked: true } }),
 
-    // Students by branch
+    // Students by branch (locked profiles only)
     prisma.student.groupBy({
       by: ["branch"],
       _count: { id: true },
-      where: { branch: { not: null } },
+      where: { branch: { not: null }, profileLocked: true },
     }),
 
-    // Students by type
+    // Students by type (locked profiles only)
     prisma.student.groupBy({
       by: ["studentType"],
       _count: { id: true },
+      where: { profileLocked: true },
     }),
 
     // Company & drive counts
@@ -61,9 +62,9 @@ export const getDashboardStats = async () => {
       _count: { id: true },
     }),
 
-    // Placed students with package details
+    // Placed students with package details (locked candidates)
     prisma.student.findMany({
-      where: { isPlaced: true, currentPackageLpa: { not: null } },
+      where: { isPlaced: true, profileLocked: true, currentPackageLpa: { not: null } },
       select: {
         id: true,
         fullName: true,

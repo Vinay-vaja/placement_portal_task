@@ -142,3 +142,21 @@ export const bulkMarkAttendance = async (req, res, next) => {
     next(error);
   }
 };
+
+/**
+ * GET /api/applications/:id/resume
+ * Stream application resume PDF directly to the browser with authentication & authorization
+ */
+export const getResume = async (req, res, next) => {
+  try {
+    await applicationService.getResumeStream(req.params.id, req.user, res);
+  } catch (error) {
+    if (!res.headersSent) {
+      if (error.statusCode) {
+        return sendError(res, error.statusCode, error.message);
+      }
+      next(error);
+    }
+  }
+};
+

@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { apiClient } from "@/lib/api-client";
 import {
   Briefcase,
   PlusCircle,
@@ -27,6 +28,7 @@ import {
   FileText,
   ExternalLink,
   ImageIcon,
+  Loader2,
 } from "lucide-react";
 
 import { ENGINEERING_BRANCHES, BranchCode } from "@/config/constants";
@@ -49,6 +51,20 @@ export default function TPODrivesPage() {
   const [driveApplicants, setDriveApplicants] = useState<any[]>([]);
   const [loadingApplicants, setLoadingApplicants] = useState(false);
   const [statusUpdatingId, setStatusUpdatingId] = useState<string | null>(null);
+  const [loadingResumeId, setLoadingResumeId] = useState<string | null>(null);
+
+  const handleViewResume = async (applicationId: string) => {
+    try {
+      setLoadingResumeId(applicationId);
+      const blob = await apiClient.getBlob(`/applications/${applicationId}/resume`);
+      const blobUrl = URL.createObjectURL(blob);
+      window.open(blobUrl, "_blank");
+    } catch (err: any) {
+      alert(err.message || "Failed to load resume PDF");
+    } finally {
+      setLoadingResumeId(null);
+    }
+  };
 
   // New Drive Modal State
   const [modalOpen, setModalOpen] = useState(false);
@@ -797,16 +813,21 @@ export default function TPODrivesPage() {
                             {app.student?.tenthPercentage ? `${app.student.tenthPercentage}%` : "—"}
                           </td>
                           <td className="py-3 px-3">
-                            {app.resumeUrl || app.student?.resumeUrl ? (
-                              <a
-                                href={app.resumeUrl || app.student?.resumeUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-blue-50 text-blue-700 hover:bg-blue-100 font-semibold text-[11px] border border-blue-200 transition-colors"
+                            {app.id || app.resumeUrl || app.student?.resumeUrl ? (
+                              <button
+                                type="button"
+                                onClick={() => handleViewResume(app.id)}
+                                disabled={loadingResumeId === app.id}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-blue-50 text-blue-700 hover:bg-blue-100 font-semibold text-[11px] border border-blue-200 transition-colors disabled:opacity-50"
                                 title="Open applicant resume PDF"
                               >
-                                <FileText className="h-3 w-3" /> Resume
-                              </a>
+                                {loadingResumeId === app.id ? (
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                ) : (
+                                  <FileText className="h-3 w-3" />
+                                )}
+                                Resume
+                              </button>
                             ) : (
                               <span className="text-slate-400 italic text-[11px]">No Resume</span>
                             )}

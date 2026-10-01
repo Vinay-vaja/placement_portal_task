@@ -50,7 +50,7 @@ export default function LoginPage() {
       <div className="w-full max-w-sm space-y-6">
         {/* Apple-style brand mark */}
         <div className="text-center space-y-2 flex flex-col items-center">
-          <CollegeLogo size={64} showText={false} />
+          <CollegeLogo size={88} showText={false} />
           <h1 className="text-2xl font-semibold tracking-tight text-[#1D1D1F]">
             Placement Portal
           </h1>

@@ -1,8 +1,9 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { Application } from "@/types";
 import { Button } from "@/components/ui/button";
+import { apiClient } from "@/lib/api-client";
 import {
   X,
   Building2,
@@ -16,6 +17,7 @@ import {
   XCircle,
   Clock,
   BookOpen,
+  Loader2,
 } from "lucide-react";
 
 interface ApplicationDetailModalProps {
@@ -27,7 +29,23 @@ export function ApplicationDetailModal({
   application,
   onClose,
 }: ApplicationDetailModalProps) {
+  const [loadingResume, setLoadingResume] = useState(false);
+
   if (!application) return null;
+
+  const handleViewResume = async () => {
+    if (!application?.id) return;
+    try {
+      setLoadingResume(true);
+      const blob = await apiClient.getBlob(`/applications/${application.id}/resume`);
+      const blobUrl = URL.createObjectURL(blob);
+      window.open(blobUrl, "_blank");
+    } catch (err: any) {
+      alert(err.message || "Failed to load resume PDF");
+    } finally {
+      setLoadingResume(false);
+    }
+  };
 
   const drive = (application.drive || {}) as any;
   const company = (drive.company || {}) as any;
@@ -190,15 +208,23 @@ export function ApplicationDetailModal({
                 </span>
               </div>
             </div>
-            {application.resumeUrl ? (
-              <a
-                href={application.resumeUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-[#0071E3] text-white text-xs font-medium hover:bg-[#0077ED] transition-colors shadow-sm"
+            {application.id || application.resumeUrl ? (
+              <button
+                type="button"
+                onClick={handleViewResume}
+                disabled={loadingResume}
+                className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-[#0071E3] text-white text-xs font-medium hover:bg-[#0077ED] transition-colors shadow-sm disabled:opacity-50"
               >
-                View Resume PDF <ExternalLink className="h-3.5 w-3.5" />
-              </a>
+                {loadingResume ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading PDF...
+                  </>
+                ) : (
+                  <>
+                    View Resume PDF <ExternalLink className="h-3.5 w-3.5" />
+                  </>
+                )}
+              </button>
             ) : (
               <span className="text-xs font-medium text-[#86868B]">
                 Resume File Attached
