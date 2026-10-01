@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { GoogleSignInButton } from "@/components/auth/google-sign-in-button";
 import { CollegeLogo } from "@/components/shared/college-logo";
+import { ThemeToggle } from "@/components/shared/theme-toggle";
 import { Lock, Mail, User, Phone, Calendar, AlertCircle } from "lucide-react";
 
 const registerSchema = z
@@ -66,7 +67,10 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-[#F5F5F7] px-4 py-12 selection:bg-[#0071E3]/20">
+    <div className="relative flex min-h-screen flex-col items-center justify-center bg-[#F5F5F7] px-4 py-12 selection:bg-[#0071E3]/20">
+      <div className="absolute top-4 right-4 sm:top-6 sm:right-6">
+        <ThemeToggle />
+      </div>
       <div className="w-full max-w-md space-y-6">
         {/* Header */}
         <div className="text-center space-y-2 flex flex-col items-center">

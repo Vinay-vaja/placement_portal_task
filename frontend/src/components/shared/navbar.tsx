@@ -5,6 +5,7 @@ import Link from "next/link";
 import { siteConfig } from "@/config/site";
 import { Button } from "@/components/ui/button";
 import { CollegeLogo } from "@/components/shared/college-logo";
+import { ThemeToggle } from "@/components/shared/theme-toggle";
 import { Menu, X, Building2, User } from "lucide-react";
 
 export function Navbar() {
@@ -33,8 +34,9 @@ export function Navbar() {
 
         {/* Action Buttons */}
         <div className="hidden md:flex items-center gap-2.5">
+          <ThemeToggle />
           <Link href="/login">
-            <Button variant="ghost" size="sm" className="text-xs font-medium text-[#1D1D1F] gap-1.5 h-8 px-3">
+            <Button variant="ghost" size="sm" className="text-xs font-medium text-[#1D1D1F] dark:text-[#F5F5F7] gap-1.5 h-8 px-3">
               <User className="h-3.5 w-3.5 text-[#86868B]" />
               Sign In
             </Button>

@@ -1,12 +1,31 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:is(.dark *));
+
 :root {
   --background: #f5f5f7;
   --foreground: #1d1d1f;
+  --card-bg: #ffffff;
+  --card-border: rgba(0, 0, 0, 0.08);
+  --header-bg: rgba(251, 251, 253, 0.85);
+  --input-bg: #f5f5f7;
   --apple-blue: #0071e3;
   --apple-blue-hover: #0077ed;
   --apple-gray: #86868b;
   --apple-border: rgba(0, 0, 0, 0.08);
+}
+
+.dark {
+  --background: #000000;
+  --foreground: #f5f5f7;
+  --card-bg: #0d0d11;
+  --card-border: rgba(255, 255, 255, 0.1);
+  --header-bg: rgba(13, 13, 17, 0.85);
+  --input-bg: #16161c;
+  --apple-blue: #0a84ff;
+  --apple-blue-hover: #2196f3;
+  --apple-gray: #a1a1a6;
+  --apple-border: rgba(255, 255, 255, 0.1);
 }
 
 @theme inline {
@@ -15,12 +34,88 @@
 }
 
 body {
-  background-color: #f5f5f7;
-  color: #1d1d1f;
+  background-color: var(--background);
+  color: var(--foreground);
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", var(--font-inter), system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   letter-spacing: -0.011em;
+  transition: background-color 0.25s ease, color 0.25s ease;
+}
+
+/* Global Dark Mode Overrides for Solid Dark Cards, Headers & Inputs */
+.dark body,
+.dark .bg-\[\#F5F5F7\],
+.dark .bg-slate-50 {
+  background-color: #000000 !important;
+}
+
+.dark .bg-white:not(.logo-badge):not(.keep-white),
+.dark .bg-\[\#FBFBFD\],
+.dark .bg-\[\#FBFBFD\]\/80 {
+  background-color: #0d0d11 !important;
+  color: #f5f5f7 !important;
+}
+
+.dark .logo-badge {
+  background-color: #ffffff !important;
+  box-shadow: 0 0 16px rgba(255, 255, 255, 0.22) !important;
+  border: 1px solid rgba(255, 255, 255, 0.35) !important;
+}
+
+.dark header {
+  background-color: rgba(13, 13, 17, 0.85) !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+.dark .border-black\/\[0\.08\],
+.dark .border-black\/\[0\.06\],
+.dark .border-black\/\[0\.04\],
+.dark .border-black\/\[0\.1\],
+.dark .border-slate-200 {
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.dark .text-\[\#1D1D1F\],
+.dark .text-slate-900 {
+  color: #f5f5f7 !important;
+}
+
+.dark .text-\[\#86868B\],
+.dark .text-slate-500 {
+  color: #a1a1a6 !important;
+}
+
+.dark input:not([type="checkbox"]):not([type="radio"]),
+.dark select,
+.dark textarea {
+  background-color: #16161c !important;
+  color: #f5f5f7 !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+}
+
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: #6e6e73 !important;
+}
+
+.dark .bg-\[\#F5F5F7\]\/80,
+.dark .bg-\[\#F5F5F7\]\/50,
+.dark .bg-\[\#F5F5F7\]\/60 {
+  background-color: #141418 !important;
+}
+
+.dark table thead tr {
+  background-color: #141418 !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+.dark table tbody tr {
+  border-color: rgba(255, 255, 255, 0.05) !important;
+}
+
+.dark table tbody tr:hover {
+  background-color: rgba(255, 255, 255, 0.03) !important;
 }
 
 /* Apple-style smooth scrollbar */
@@ -35,11 +130,21 @@ body {
   background: rgba(0, 0, 0, 0.15);
   border-radius: 9999px;
 }
+.dark ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+}
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(0, 0, 0, 0.25);
+}
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.35);
 }
 
 ::selection {
   background-color: rgba(0, 113, 227, 0.2);
   color: #0071e3;
+}
+.dark ::selection {
+  background-color: rgba(10, 132, 255, 0.3);
+  color: #0a84ff;
 }

@@ -39,7 +39,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={inter.variable}>
+    <html lang="en" className={inter.variable} suppressHydrationWarning>
       <body className="min-h-screen bg-slate-50 font-sans text-slate-900 antialiased flex flex-col">
         <AppProviders>
           <main className="flex-1">{children}</main>

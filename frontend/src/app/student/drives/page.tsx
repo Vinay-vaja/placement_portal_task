@@ -39,12 +39,14 @@ function CompanyLogo({ src, name }: { src?: string | null; name: string }) {
   }
 
   return (
-    <img
-      src={src}
-      alt={name}
-      className="h-12 w-12 rounded-2xl object-contain shrink-0"
-      onError={() => setImageError(true)}
-    />
+    <div className="logo-badge h-12 w-12 rounded-2xl p-1 shrink-0 flex items-center justify-center bg-white shadow-xs border border-black/[0.06] dark:border-white/20">
+      <img
+        src={src}
+        alt={name}
+        className="h-full w-full object-contain rounded-xl"
+        onError={() => setImageError(true)}
+      />
+    </div>
   );
 }
 

@@ -47,19 +47,21 @@ function CompanyLogo({ src, alt }: { src?: string | null; alt: string }) {
 
   if (!src || hasError) {
     return (
-      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600 font-bold border border-blue-100 shrink-0">
+      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 font-bold border border-blue-100 dark:border-blue-900/50 shrink-0">
         <Building2 className="h-5 w-5" />
       </div>
     );
   }
 
   return (
-    <img
-      src={src}
-      alt={alt}
-      className="h-12 w-12 rounded-xl object-contain shrink-0"
-      onError={() => setHasError(true)}
-    />
+    <div className="logo-badge h-12 w-12 rounded-xl p-1 shrink-0 flex items-center justify-center bg-white shadow-xs border border-black/[0.06] dark:border-white/20">
+      <img
+        src={src}
+        alt={alt}
+        className="h-full w-full object-contain rounded-lg"
+        onError={() => setHasError(true)}
+      />
+    </div>
   );
 }
 

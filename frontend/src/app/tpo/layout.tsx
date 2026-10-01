@@ -7,6 +7,7 @@ import { RBACGuard } from "@/providers/rbac-guard";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { CollegeLogo } from "@/components/shared/college-logo";
+import { ThemeToggle } from "@/components/shared/theme-toggle";
 import {
   LayoutDashboard,
   Users,
@@ -79,6 +80,8 @@ export default function TPOLayout({ children }: TPOLayoutProps) {
 
             {/* Right Admin Controls */}
             <div className="hidden md:flex items-center gap-3">
+              <ThemeToggle />
+
               <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-black/[0.04]">
                 <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[#1D1D1F] text-white text-[11px] font-medium">
                   <ShieldCheck className="h-3.5 w-3.5" />
@@ -100,12 +103,15 @@ export default function TPOLayout({ children }: TPOLayoutProps) {
             </div>
 
             {/* Mobile menu trigger */}
-            <button
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="md:hidden p-1.5 text-[#1D1D1F]"
-            >
-              {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-            </button>
+            <div className="flex md:hidden items-center gap-2">
+              <ThemeToggle />
+              <button
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                className="p-1.5 text-[#1D1D1F]"
+              >
+                {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+              </button>
+            </div>
           </div>
 
           {/* Mobile Drawer */}

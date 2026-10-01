@@ -7,6 +7,7 @@ import { RBACGuard } from "@/providers/rbac-guard";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { CollegeLogo } from "@/components/shared/college-logo";
+import { ThemeToggle } from "@/components/shared/theme-toggle";
 import {
   User,
   Briefcase,
@@ -68,6 +69,8 @@ export default function StudentLayout({ children }: StudentLayoutProps) {
 
             {/* Right Student Controls */}
             <div className="hidden md:flex items-center gap-3">
+              <ThemeToggle />
+
               <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-black/[0.04]">
                 <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[#0071E3] text-white text-[11px] font-medium">
                   {user?.student?.fullName ? user.student.fullName.charAt(0).toUpperCase() : "S"}
@@ -91,12 +94,15 @@ export default function StudentLayout({ children }: StudentLayoutProps) {
             </div>
 
             {/* Mobile menu trigger */}
-            <button
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="md:hidden p-1.5 text-[#1D1D1F]"
-            >
-              {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-            </button>
+            <div className="flex md:hidden items-center gap-2">
+              <ThemeToggle />
+              <button
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                className="p-1.5 text-[#1D1D1F]"
+              >
+                {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+              </button>
+            </div>
           </div>
 
           {/* Mobile Drawer */}
