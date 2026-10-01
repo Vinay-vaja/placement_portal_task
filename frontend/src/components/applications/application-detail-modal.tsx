@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Application } from "@/types";
 import { Button } from "@/components/ui/button";
 import { apiClient } from "@/lib/api-client";
@@ -19,6 +19,31 @@ import {
   BookOpen,
   Loader2,
 } from "lucide-react";
+
+function ModalCompanyLogo({ src, alt }: { src?: string | null; alt: string }) {
+  const [hasError, setHasError] = useState(false);
+
+  useEffect(() => {
+    setHasError(false);
+  }, [src]);
+
+  if (!src || hasError) {
+    return (
+      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#0071E3]/10 text-[#0071E3] shrink-0">
+        <Building2 className="h-6 w-6" />
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={src}
+      alt={alt}
+      className="h-14 w-14 rounded-2xl object-contain shrink-0"
+      onError={() => setHasError(true)}
+    />
+  );
+}
 
 interface ApplicationDetailModalProps {
   application: Application | null;
@@ -88,20 +113,7 @@ export function ApplicationDetailModal({
 
         {/* Modal Header */}
         <div className="flex items-start gap-4">
-          {company.imageUrl ? (
-            <img
-              src={company.imageUrl}
-              alt={companyTitle}
-              className="h-14 w-14 rounded-2xl object-contain border border-black/[0.08] bg-white p-1.5 shrink-0"
-              onError={(e) => {
-                (e.target as HTMLElement).style.display = "none";
-              }}
-            />
-          ) : (
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#0071E3]/10 text-[#0071E3] shrink-0">
-              <Building2 className="h-7 w-7" />
-            </div>
-          )}
+          <ModalCompanyLogo src={company.imageUrl} alt={companyTitle} />
 
           <div className="space-y-1 min-w-0 flex-1">
             <div className="flex flex-wrap items-center justify-between gap-2">

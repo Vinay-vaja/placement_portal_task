@@ -1,5 +1,6 @@
 import prisma from "../config/prisma.js";
 import { parsePagination, buildPaginatedResponse } from "../utils/pagination.js";
+import { checkStudentEligibility } from "./eligibility.service.js";
 
 /**
  * Create a new recruitment drive (TPO only)
@@ -45,7 +46,7 @@ export const createDrive = async (data) => {
       company = await prisma.company.create({
         data: { name: trimmedName, imageUrl: logoUrl },
       });
-    } else if (logoUrl && !company.imageUrl) {
+    } else if (logoUrl) {
       company = await prisma.company.update({
         where: { id: company.id },
         data: { imageUrl: logoUrl },
@@ -121,7 +122,8 @@ export const createDrive = async (data) => {
 
 /**
  * Get all recruitment drives (paginated with filters)
- * If accessed by a STUDENT, excludes drives that student has already applied to.
+ * If accessed by a STUDENT, filters drives using checkStudentEligibility()
+ * so the student ONLY sees drives they are qualified for.
  */
 export const getDrives = async (query = {}, userId = null, userRole = null) => {
   const { skip, take, page, limit } = parsePagination(query);
@@ -143,24 +145,50 @@ export const getDrives = async (query = {}, userId = null, userRole = null) => {
     where.allowedBranches = { hasSome: branches };
   }
 
-  // If student is requesting, exclude drives they have already applied to
+  // STUDENT-specific eligibility filtering
   if (userRole === "STUDENT" && userId) {
     const student = await prisma.student.findUnique({
       where: { userId },
-      select: { id: true },
+      include: { semesterSpis: { orderBy: { semester: "asc" } } },
     });
-    if (student) {
-      const studentApps = await prisma.application.findMany({
-        where: { studentId: student.id },
-        select: { driveId: true },
-      });
-      const appliedDriveIds = studentApps.map((a) => a.driveId);
-      if (appliedDriveIds.length > 0) {
-        where.id = { notIn: appliedDriveIds };
-      }
+
+    // If student profile is missing, unlocked, or dismissed -> return 0 drives
+    if (!student || !student.profileLocked || student.isDismissed) {
+      return buildPaginatedResponse([], 0, page, limit);
     }
+
+    // Exclude drives student has already applied to
+    const studentApps = await prisma.application.findMany({
+      where: { studentId: student.id },
+      select: { driveId: true },
+    });
+    const appliedDriveIds = studentApps.map((a) => a.driveId);
+    if (appliedDriveIds.length > 0) {
+      where.id = { notIn: appliedDriveIds };
+    }
+
+    // Fetch candidate drives matching base filters
+    const candidateDrives = await prisma.recruitmentDrive.findMany({
+      where,
+      include: {
+        company: { select: { id: true, name: true, imageUrl: true } },
+        _count: { select: { applications: true } },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    // Filter candidate drives using authoritative checkStudentEligibility
+    const eligibleDrives = candidateDrives.filter(
+      (drive) => checkStudentEligibility(student, drive).eligible
+    );
+
+    const total = eligibleDrives.length;
+    const paginatedDrives = eligibleDrives.slice(skip, skip + take);
+
+    return buildPaginatedResponse(paginatedDrives, total, page, limit);
   }
 
+  // Default path for non-STUDENT users (e.g. CENTRAL_TPO)
   const [drives, total] = await Promise.all([
     prisma.recruitmentDrive.findMany({
       where,
@@ -211,10 +239,41 @@ export const updateDrive = async (driveId, data) => {
     throw error;
   }
 
+  // Extract companyLogo so it's NOT passed to prisma.recruitmentDrive.update
+  const { companyLogo, companyName, ...driveData } = data;
+
+  const updateData = { ...driveData };
+
   // Parse date if provided
-  const updateData = { ...data };
   if (updateData.applicationDeadline) {
     updateData.applicationDeadline = new Date(updateData.applicationDeadline);
+  }
+  if (updateData.deadline) {
+    updateData.applicationDeadline = new Date(updateData.deadline);
+    delete updateData.deadline;
+  }
+  if (updateData.role || updateData.jobRole) {
+    updateData.role = updateData.role || updateData.jobRole;
+    delete updateData.jobRole;
+  }
+  if (updateData.ctc || updateData.minLpa) {
+    updateData.ctc = updateData.ctc ? Number(updateData.ctc) : Number(updateData.minLpa);
+    delete updateData.minLpa;
+  }
+  if (updateData.ctcMax !== undefined || updateData.maxLpa !== undefined) {
+    const ctcMaxVal = updateData.ctcMax !== undefined ? updateData.ctcMax : updateData.maxLpa;
+    updateData.ctcMax = ctcMaxVal !== null && ctcMaxVal !== "" && ctcMaxVal !== undefined ? Number(ctcMaxVal) : null;
+    delete updateData.maxLpa;
+  }
+
+  // Update Company imageUrl if companyLogo was explicitly provided (non-undefined and non-null)
+  const logoUrl = typeof companyLogo === "string" ? companyLogo.trim() : companyLogo;
+  if (logoUrl !== undefined && logoUrl !== null && drive.companyId) {
+    const finalLogo = logoUrl || null;
+    await prisma.company.update({
+      where: { id: drive.companyId },
+      data: { imageUrl: finalLogo },
+    });
   }
 
   const updatedDrive = await prisma.recruitmentDrive.update({

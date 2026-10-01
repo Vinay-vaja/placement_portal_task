@@ -36,6 +36,31 @@ import { tpoService } from "@/services/tpo.service";
 
 const ALL_BRANCHES: BranchCode[] = ENGINEERING_BRANCHES.map((b) => b.code);
 
+function CompanyLogo({ src, alt }: { src?: string | null; alt: string }) {
+  const [hasError, setHasError] = useState(false);
+
+  useEffect(() => {
+    setHasError(false);
+  }, [src]);
+
+  if (!src || hasError) {
+    return (
+      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600 font-bold border border-blue-100 shrink-0">
+        <Building2 className="h-5 w-5" />
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={src}
+      alt={alt}
+      className="h-12 w-12 rounded-xl object-contain shrink-0"
+      onError={() => setHasError(true)}
+    />
+  );
+}
+
 export default function TPODrivesPage() {
   const [drives, setDrives] = useState<RecruitmentDrive[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -338,20 +363,7 @@ export default function TPODrivesPage() {
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-3">
-                      {companyLogo ? (
-                        <img
-                          src={companyLogo}
-                          alt={companyTitle}
-                          className="h-10 w-10 rounded-xl object-contain border border-slate-200 bg-white p-1 shrink-0"
-                          onError={(e) => {
-                            (e.target as HTMLElement).style.display = 'none';
-                          }}
-                        />
-                      ) : (
-                        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600 font-bold border border-blue-100 shrink-0">
-                          <Building2 className="h-5 w-5" />
-                        </div>
-                      )}
+                      <CompanyLogo src={companyLogo} alt={companyTitle} />
                       <div className="min-w-0">
                         <CardTitle className="text-base font-bold text-slate-900 truncate">
                           {companyTitle}
