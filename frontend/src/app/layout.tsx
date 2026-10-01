@@ -24,7 +24,12 @@ export const metadata: Metadata = {
   },
   description: siteConfig.description,
   icons: {
-    icon: "/favicon.ico",
+    icon: [
+      { url: "/tpo-logo.png", type: "image/png" },
+      { url: "/favicon.ico" },
+    ],
+    shortcut: "/tpo-logo.png",
+    apple: "/tpo-logo.png",
   },
 };
 

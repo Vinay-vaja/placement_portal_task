@@ -29,10 +29,12 @@ import {
   ExternalLink,
   ImageIcon,
   Loader2,
+  Upload,
 } from "lucide-react";
 
 import { ENGINEERING_BRANCHES, BranchCode } from "@/config/constants";
 import { tpoService } from "@/services/tpo.service";
+import { uploadService } from "@/services/upload.service";
 
 const ALL_BRANCHES: BranchCode[] = ENGINEERING_BRANCHES.map((b) => b.code);
 
@@ -110,6 +112,41 @@ export default function TPODrivesPage() {
     brochureUrl: "",
     eligibleBranches: ALL_BRANCHES as BranchCode[],
   });
+
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
+  const [logoUploadError, setLogoUploadError] = useState<string | null>(null);
+  const fileInputRef = React.useRef<HTMLInputElement | null>(null);
+
+  const handleLogoFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate type
+    const validTypes = ["image/png", "image/jpeg", "image/jpg", "image/webp", "image/svg+xml"];
+    if (!validTypes.includes(file.type)) {
+      setLogoUploadError("Please select a valid image file (PNG, JPG, WEBP, or SVG).");
+      return;
+    }
+
+    // Validate size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      setLogoUploadError("Image size must be less than 5MB.");
+      return;
+    }
+
+    try {
+      setIsUploadingLogo(true);
+      setLogoUploadError(null);
+      const res = await uploadService.uploadImage(file, "placement_portal/companies");
+      if (res.data?.url) {
+        setFormData((prev) => ({ ...prev, companyLogo: res.data.url }));
+      }
+    } catch (err: unknown) {
+      setLogoUploadError((err as Error)?.message || "Failed to upload company logo to Cloudinary");
+    } finally {
+      setIsUploadingLogo(false);
+    }
+  };
 
   const fetchDrives = async () => {
     try {
@@ -208,6 +245,17 @@ export default function TPODrivesPage() {
     fetchDrives();
   }, []);
 
+  // Lock background scrolling when any popup/modal is open
+  useEffect(() => {
+    if (modalOpen || applicantsModalOpen) {
+      const originalOverflow = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+      return () => {
+        document.body.style.overflow = originalOverflow;
+      };
+    }
+  }, [modalOpen, applicantsModalOpen]);
+
   const handleBranchToggle = (branch: BranchCode) => {
     setFormData((prev) => ({
       ...prev,
@@ -282,6 +330,8 @@ export default function TPODrivesPage() {
         brochureUrl: "",
         eligibleBranches: ALL_BRANCHES,
       });
+      setLogoUploadError(null);
+      if (fileInputRef.current) fileInputRef.current.value = "";
       fetchDrives();
     } catch (err: unknown) {
       alert((err as Error)?.message || "Failed to create recruitment drive");
@@ -484,8 +534,8 @@ export default function TPODrivesPage() {
 
       {/* Create Drive Modal */}
       {modalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs">
-          <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-white rounded-2xl shadow-2xl border border-slate-200 p-6 space-y-6">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs overscroll-contain">
+          <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto overscroll-contain bg-white rounded-2xl shadow-2xl border border-slate-200 p-6 space-y-6">
             <div className="flex items-center justify-between border-b border-slate-100 pb-4">
               <div>
                 <h3 className="text-lg font-bold text-slate-900">Post New Recruitment Drive</h3>
@@ -525,15 +575,105 @@ export default function TPODrivesPage() {
 
               {/* Company Logo and Brochure / Documentation Link */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="font-semibold text-slate-700">Company Logo Image URL (Optional)</label>
-                  <Input
-                    type="url"
-                    placeholder="https://example.com/logo.png"
-                    value={formData.companyLogo}
-                    onChange={(e) => setFormData({ ...formData, companyLogo: e.target.value })}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="font-semibold text-slate-700">Company Logo (Upload or Link)</label>
+                    {formData.companyLogo && (
+                      <span className="text-[10px] text-emerald-600 font-medium flex items-center gap-1">
+                        <CheckCircle2 className="h-3 w-3" /> Logo Attached
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Hidden File Input */}
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/png,image/jpeg,image/jpg,image/webp,image/svg+xml"
+                    onChange={handleLogoFileUpload}
+                    className="hidden"
                   />
-                  <p className="text-[10px] text-slate-500">Provide image URL for official company branding</p>
+
+                  {/* Upload button & URL input row */}
+                  <div className="space-y-2">
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        disabled={isUploadingLogo}
+                        onClick={() => fileInputRef.current?.click()}
+                        className="h-9 text-xs px-3 gap-1.5 shrink-0 border border-slate-300 bg-slate-50 hover:bg-slate-100 text-slate-700 font-medium"
+                      >
+                        {isUploadingLogo ? (
+                          <>
+                            <Loader2 className="h-3.5 w-3.5 animate-spin text-blue-600" />
+                            <span>Uploading...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Upload className="h-3.5 w-3.5 text-blue-600" />
+                            <span>Upload Image</span>
+                          </>
+                        )}
+                      </Button>
+
+                      <Input
+                        type="url"
+                        placeholder="Or paste image URL (https://...)"
+                        value={formData.companyLogo}
+                        onChange={(e) => setFormData({ ...formData, companyLogo: e.target.value })}
+                        className="h-9 flex-1 text-xs"
+                      />
+                    </div>
+
+                    {logoUploadError && (
+                      <p className="text-[11px] text-rose-600 font-medium flex items-center gap-1">
+                        <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                        {logoUploadError}
+                      </p>
+                    )}
+
+                    {/* Logo Preview Card */}
+                    {formData.companyLogo && (
+                      <div className="flex items-center gap-3 p-2 bg-slate-50 rounded-lg border border-slate-200">
+                        <img
+                          src={formData.companyLogo}
+                          alt="Company Logo Preview"
+                          className="h-9 w-9 object-contain rounded-md bg-white border border-slate-200 p-0.5 shrink-0"
+                          onError={(e) => {
+                            (e.currentTarget as HTMLElement).style.display = "none";
+                          }}
+                        />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[11px] font-medium text-slate-800 truncate">
+                            {formData.companyLogo}
+                          </p>
+                          <p className="text-[10px] text-slate-500 flex items-center gap-1">
+                            {formData.companyLogo.includes("cloudinary.com") ? (
+                              <span className="text-emerald-600 font-semibold flex items-center gap-0.5">
+                                <CheckCircle2 className="h-3 w-3" /> Cloudinary Synced
+                              </span>
+                            ) : (
+                              <span>External Link</span>
+                            )}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setFormData((prev) => ({ ...prev, companyLogo: "" }));
+                            if (fileInputRef.current) fileInputRef.current.value = "";
+                          }}
+                          className="text-slate-400 hover:text-rose-500 p-1 rounded-md transition-colors"
+                          title="Remove logo"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-slate-500">Upload direct image file (synced to Cloudinary) or paste image URL</p>
                 </div>
                 <div className="space-y-1.5">
                   <label className="font-semibold text-slate-700">Company Brochure / Job Description Link (Optional)</label>
@@ -735,8 +875,8 @@ export default function TPODrivesPage() {
 
       {/* Applicants & Attendance Modal */}
       {applicantsModalOpen && activeDriveForApplicants && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs">
-          <div className="w-full max-w-4xl max-h-[88vh] flex flex-col bg-white rounded-3xl shadow-2xl border border-slate-200 p-6 space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs overscroll-contain">
+          <div className="w-full max-w-4xl max-h-[88vh] flex flex-col overscroll-contain bg-white rounded-3xl shadow-2xl border border-slate-200 p-6 space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-slate-100 pb-4 gap-3">
               <div>
                 <div className="flex items-center gap-2">
