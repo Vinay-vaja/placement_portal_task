@@ -8,11 +8,11 @@ import { z } from "zod";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { GoogleSignInButton } from "@/components/auth/google-sign-in-button";
 import { CollegeLogo } from "@/components/shared/college-logo";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
-import { Lock, Mail, User, Phone, Calendar, AlertCircle } from "lucide-react";
+import { Lock, Mail, User, Phone, Calendar, AlertCircle, GraduationCap, CheckCircle2 } from "lucide-react";
 
 const registerSchema = z
   .object({
@@ -67,174 +67,205 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="relative flex min-h-screen flex-col items-center justify-center bg-[#F5F5F7] px-4 py-12 selection:bg-[#0071E3]/20">
-      <div className="absolute top-4 right-4 sm:top-6 sm:right-6">
-        <ThemeToggle />
-      </div>
-      <div className="w-full max-w-md space-y-6">
-        {/* Header */}
-        <div className="text-center space-y-2 flex flex-col items-center">
-          <CollegeLogo size={64} showText={false} />
-          <h1 className="text-2xl font-semibold tracking-tight text-[#1D1D1F]">
-            Student Registration
-          </h1>
-          <p className="text-xs text-[#86868B]">
-            Create your account to submit academic credentials for recruitment drives
-          </p>
+    <div className="flex h-screen w-screen overflow-hidden bg-[#F5F5F7] dark:bg-black selection:bg-[#0071E3]/20">
+      {/* LEFT SIDE: Clean, Unobstructed Campus Visual Showcase (Desktop) */}
+      <div className="relative hidden lg:flex lg:w-1/2 xl:w-7/12 h-full flex-col justify-between p-6 xl:p-8 overflow-hidden select-none">
+        {/* Full HD Clear Campus Background Image */}
+        <img
+          src="/campus-2.png"
+          alt="L.D. College of Engineering Heritage & Garden"
+          className="absolute inset-0 h-full w-full object-cover object-center"
+        />
+
+        {/* Minimal Subtle Glass Header */}
+        <div className="relative z-10 flex items-center justify-between">
+          <div className="flex items-center gap-2.5 bg-black/40 backdrop-blur-md px-3.5 py-2 rounded-2xl border border-white/20 shadow-md">
+            <CollegeLogo size={34} showText={false} />
+            <div className="leading-tight">
+              <span className="text-xs font-bold tracking-tight text-white block">
+                L.D. College of Engineering
+              </span>
+              <span className="text-[10px] text-white/80 font-normal block">
+                Placement Portal Registration
+              </span>
+            </div>
+          </div>
+          <span className="rounded-full bg-black/40 backdrop-blur-md px-3 py-1 text-[10px] font-semibold text-white/90 border border-white/20">
+            Autonomous Institution
+          </span>
         </div>
 
-        {/* Minimal Card */}
-        <Card className="border border-black/[0.08] shadow-[0_4px_24px_rgba(0,0,0,0.04)] bg-white rounded-3xl p-2 sm:p-4">
-          <CardHeader className="space-y-1 pb-4 text-center">
-            <CardTitle className="text-xl font-semibold text-[#1D1D1F]">New Account</CardTitle>
-            <CardDescription className="text-xs text-[#86868B]">
-              Enter your details to create your placement student profile
-            </CardDescription>
-          </CardHeader>
+        {/* Empty bottom area so the image remains completely clear and visible */}
+        <div />
+      </div>
 
-          <CardContent className="space-y-4">
-            {errorMessage && (
-              <div className="flex items-center gap-2.5 rounded-2xl bg-red-50/80 p-3 text-xs font-medium text-[#FF3B30] border border-[#FF3B30]/20">
-                <AlertCircle className="h-4 w-4 flex-shrink-0" />
-                <span>{errorMessage}</span>
-              </div>
-            )}
+      {/* RIGHT SIDE: Fixed Non-Scrollable Register Card */}
+      <div className="relative flex w-full lg:w-1/2 xl:w-5/12 h-full flex-col justify-center items-center px-4 sm:px-8 py-4 overflow-y-auto lg:overflow-hidden">
+        {/* Floating Top Right Theme Toggle */}
+        <div className="absolute top-3 right-4 sm:top-5 sm:right-6 z-20">
+          <ThemeToggle />
+        </div>
 
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-3.5">
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium text-[#1D1D1F]">Full Name</label>
-                <div className="relative">
-                  <User className="absolute left-3.5 top-3 h-4 w-4 text-[#86868B]" />
-                  <Input
-                    {...register("fullName")}
-                    type="text"
-                    placeholder="e.g. Rahul Sharma"
-                    className="pl-10"
-                    error={errors.fullName?.message}
-                  />
+        <div className="w-full max-w-md space-y-3.5 my-auto">
+          {/* Header */}
+          <div className="text-center space-y-1 flex flex-col items-center">
+            <CollegeLogo size={52} showText={false} />
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-[#1D1D1F] dark:text-[#F5F5F7]">
+              Student Registration
+            </h1>
+            <p className="text-xs text-[#86868B] dark:text-[#A1A1A6]">
+              Create your placement profile to access campus recruitment drives
+            </p>
+          </div>
+
+          {/* Minimal Solid Card */}
+          <Card className="border border-black/[0.08] dark:border-white/10 shadow-[0_4px_24px_rgba(0,0,0,0.04)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.5)] bg-white dark:bg-[#0D0D11] rounded-3xl p-3 sm:p-4">
+            <CardContent className="space-y-3 pt-1">
+              {errorMessage && (
+                <div className="flex items-center gap-2.5 rounded-2xl bg-red-50/90 dark:bg-red-950/40 p-2.5 text-xs font-medium text-[#FF3B30] dark:text-red-400 border border-[#FF3B30]/20 dark:border-red-900/40">
+                  <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                  <span>{errorMessage}</span>
                 </div>
-              </div>
+              )}
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-[#1D1D1F]">College Email</label>
+              <form onSubmit={handleSubmit(onSubmit)} className="space-y-2.5">
+                <div className="space-y-1">
+                  <label className="text-[11px] font-medium text-[#1D1D1F] dark:text-[#F5F5F7]">Full Name</label>
                   <div className="relative">
-                    <Mail className="absolute left-3.5 top-3 h-4 w-4 text-[#86868B]" />
+                    <User className="absolute left-3 top-2.5 h-3.5 w-3.5 text-[#86868B] dark:text-[#A1A1A6]" />
                     <Input
-                      {...register("email")}
-                      type="email"
-                      placeholder="student@ldce.ac.in"
-                      className="pl-10"
-                      error={errors.email?.message}
+                      {...register("fullName")}
+                      type="text"
+                      placeholder="e.g. Rahul Sharma"
+                      className="pl-9 h-9 text-xs"
+                      error={errors.fullName?.message}
                     />
                   </div>
                 </div>
 
-                <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-[#1D1D1F]">Phone Number</label>
-                  <div className="relative">
-                    <Phone className="absolute left-3.5 top-3 h-4 w-4 text-[#86868B]" />
-                    <Input
-                      {...register("phone")}
-                      type="tel"
-                      placeholder="9876543210"
-                      className="pl-10"
-                      error={errors.phone?.message}
-                    />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-medium text-[#1D1D1F] dark:text-[#F5F5F7]">College Email</label>
+                    <div className="relative">
+                      <Mail className="absolute left-3 top-2.5 h-3.5 w-3.5 text-[#86868B] dark:text-[#A1A1A6]" />
+                      <Input
+                        {...register("email")}
+                        type="email"
+                        placeholder="student@ldce.ac.in"
+                        className="pl-9 h-9 text-xs"
+                        error={errors.email?.message}
+                      />
+                    </div>
                   </div>
-                </div>
-              </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-[#1D1D1F]">Date of Birth</label>
-                  <div className="relative">
-                    <Calendar className="absolute left-3.5 top-3 h-4 w-4 text-[#86868B]" />
-                    <Input
-                      {...register("dob")}
-                      type="date"
-                      className="pl-10"
-                      error={errors.dob?.message}
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-[#1D1D1F]">Admission Mode</label>
-                  <select
-                    {...register("studentType")}
-                    className="w-full h-10 rounded-xl border border-black/[0.1] bg-[#F5F5F7]/80 px-3 text-xs sm:text-sm text-[#1D1D1F] focus:bg-white focus:border-[#0071E3] focus:outline-none focus:ring-2 focus:ring-[#0071E3]/20 transition-all"
-                  >
-                    <option value="REGULAR">Regular (12th Admission)</option>
-                    <option value="D2D">D2D (Diploma to Degree)</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-[#1D1D1F]">Password</label>
-                  <div className="relative">
-                    <Lock className="absolute left-3.5 top-3 h-4 w-4 text-[#86868B]" />
-                    <Input
-                      {...register("password")}
-                      type="password"
-                      placeholder="••••••••"
-                      className="pl-10"
-                      error={errors.password?.message}
-                    />
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-medium text-[#1D1D1F] dark:text-[#F5F5F7]">Phone Number</label>
+                    <div className="relative">
+                      <Phone className="absolute left-3 top-2.5 h-3.5 w-3.5 text-[#86868B] dark:text-[#A1A1A6]" />
+                      <Input
+                        {...register("phone")}
+                        type="tel"
+                        placeholder="9876543210"
+                        className="pl-9 h-9 text-xs"
+                        error={errors.phone?.message}
+                      />
+                    </div>
                   </div>
                 </div>
 
-                <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-[#1D1D1F]">Confirm Password</label>
-                  <div className="relative">
-                    <Lock className="absolute left-3.5 top-3 h-4 w-4 text-[#86868B]" />
-                    <Input
-                      {...register("confirmPassword")}
-                      type="password"
-                      placeholder="••••••••"
-                      className="pl-10"
-                      error={errors.confirmPassword?.message}
-                    />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-medium text-[#1D1D1F] dark:text-[#F5F5F7]">Date of Birth</label>
+                    <div className="relative">
+                      <Calendar className="absolute left-3 top-2.5 h-3.5 w-3.5 text-[#86868B] dark:text-[#A1A1A6]" />
+                      <Input
+                        {...register("dob")}
+                        type="date"
+                        className="pl-9 h-9 text-xs"
+                        error={errors.dob?.message}
+                      />
+                    </div>
                   </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-medium text-[#1D1D1F] dark:text-[#F5F5F7]">Admission Mode</label>
+                    <select
+                      {...register("studentType")}
+                      className="w-full h-9 rounded-xl border border-black/[0.1] dark:border-white/12 bg-[#F5F5F7]/80 dark:bg-[#16161C] px-3 text-xs text-[#1D1D1F] dark:text-[#F5F5F7] focus:bg-white dark:focus:bg-[#1C1C22] focus:border-[#0071E3] focus:outline-none focus:ring-2 focus:ring-[#0071E3]/20 transition-all"
+                    >
+                      <option value="REGULAR">Regular (12th Admission)</option>
+                      <option value="D2D">D2D (Diploma to Degree)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-medium text-[#1D1D1F] dark:text-[#F5F5F7]">Password</label>
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-2.5 h-3.5 w-3.5 text-[#86868B] dark:text-[#A1A1A6]" />
+                      <Input
+                        {...register("password")}
+                        type="password"
+                        placeholder="••••••••"
+                        className="pl-9 h-9 text-xs"
+                        error={errors.password?.message}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-medium text-[#1D1D1F] dark:text-[#F5F5F7]">Confirm</label>
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-2.5 h-3.5 w-3.5 text-[#86868B] dark:text-[#A1A1A6]" />
+                      <Input
+                        {...register("confirmPassword")}
+                        type="password"
+                        placeholder="••••••••"
+                        className="pl-9 h-9 text-xs"
+                        error={errors.confirmPassword?.message}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <Button
+                  type="submit"
+                  variant="primary"
+                  className="w-full font-semibold mt-1 h-9 text-xs bg-[#0071E3] hover:bg-[#0077ED] dark:bg-[#0A84FF] dark:hover:bg-[#0071E3]"
+                  isLoading={isLoading}
+                >
+                  Create Account
+                </Button>
+              </form>
+
+              <div className="relative my-1.5">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t border-black/[0.06] dark:border-white/10" />
+                </div>
+                <div className="relative flex justify-center text-[10px] uppercase tracking-wider">
+                  <span className="bg-white dark:bg-[#0D0D11] px-3 text-[#86868B] dark:text-[#A1A1A6] font-medium">
+                    Or
+                  </span>
                 </div>
               </div>
 
-              <Button
-                type="submit"
-                variant="primary"
-                className="w-full font-medium mt-2 h-11 text-xs sm:text-sm"
-                isLoading={isLoading}
-              >
-                Create Account
-              </Button>
-            </form>
+              {/* Google Authentication */}
+              <GoogleSignInButton
+                label="Sign Up with Google"
+                onError={(err) => setErrorMessage(err)}
+              />
+            </CardContent>
+          </Card>
 
-            <div className="relative my-4">
-              <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t border-black/[0.06]" />
-              </div>
-              <div className="relative flex justify-center text-[11px] uppercase tracking-wider">
-                <span className="bg-white px-3 text-[#86868B] font-medium">Or</span>
-              </div>
-            </div>
-
-            {/* Google Authentication */}
-            <GoogleSignInButton
-              label="Sign Up with Google"
-              onError={(err) => setErrorMessage(err)}
-            />
-          </CardContent>
-        </Card>
-
-        {/* Footer */}
-        <p className="text-center text-xs text-[#86868B]">
-          Already have an account?{" "}
-          <Link href="/login" className="font-medium text-[#0071E3] hover:underline">
-            Sign In
-          </Link>
-        </p>
+          {/* Footer */}
+          <p className="text-center text-xs text-[#86868B] dark:text-[#A1A1A6]">
+            Already have an account?{" "}
+            <Link href="/login" className="font-semibold text-[#0071E3] dark:text-[#64D2FF] hover:underline">
+              Sign In
+            </Link>
+          </p>
+        </div>
       </div>
     </div>
   );
