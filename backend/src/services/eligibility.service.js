@@ -179,9 +179,16 @@ export const getEligibleStudents = async (drive, filters = {}) => {
     where.tenthPercentage = { gte: drive.minTenthPercentage };
   }
 
-  // Pre-filter by 12th percentage at DB level
+  // Pre-filter by 12th percentage at DB level (only applies to REGULAR candidates; D2D students have null 12th marks)
   if (drive.minTwelfthPercentage) {
-    where.twelfthPercentage = { gte: drive.minTwelfthPercentage };
+    if (drive.allowedStudentType === "ALL" && !where.studentType) {
+      where.OR = [
+        { studentType: "D2D" },
+        { twelfthPercentage: { gte: drive.minTwelfthPercentage } },
+      ];
+    } else if (drive.allowedStudentType === "REGULAR" || where.studentType === "REGULAR") {
+      where.twelfthPercentage = { gte: drive.minTwelfthPercentage };
+    }
   }
 
   // Optional query param filters

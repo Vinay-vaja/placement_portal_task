@@ -147,6 +147,9 @@ export const getDrives = async (query = {}, userId = null, userRole = null) => {
 
   if (query.status) {
     where.status = query.status;
+  } else if (userRole === "STUDENT") {
+    // By default, students only see active recruitment drives unless explicitly filtered
+    where.status = "ACTIVE";
   }
   if (query.companyId) {
     where.companyId = query.companyId;

@@ -345,6 +345,45 @@ export const updateApplicationStatus = async (applicationId, status) => {
         },
       })
     );
+  } else if (application.status === "SELECTED" && status !== "SELECTED") {
+    // Application was previously SELECTED, now demoted or revoked.
+    // Recalculate remaining offers or revoke placement status if no offers remain.
+    const remainingSelected = await prisma.application.findMany({
+      where: {
+        studentId: application.studentId,
+        status: "SELECTED",
+        id: { not: applicationId },
+      },
+      include: {
+        drive: { select: { ctc: true, ctcMax: true } },
+      },
+    });
+
+    if (remainingSelected.length > 0) {
+      const remainingPackages = remainingSelected.map((a) =>
+        a.drive.ctcMax ? (a.drive.ctc + a.drive.ctcMax) / 2 : a.drive.ctc
+      );
+      const newHighest = Math.max(...remainingPackages);
+      updateOperations.push(
+        prisma.student.update({
+          where: { id: application.studentId },
+          data: {
+            isPlaced: true,
+            currentPackageLpa: newHighest,
+          },
+        })
+      );
+    } else {
+      updateOperations.push(
+        prisma.student.update({
+          where: { id: application.studentId },
+          data: {
+            isPlaced: false,
+            currentPackageLpa: null,
+          },
+        })
+      );
+    }
   }
 
   const results = await prisma.$transaction(updateOperations);
