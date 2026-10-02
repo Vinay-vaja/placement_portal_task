@@ -62,7 +62,7 @@ function ResetPasswordForm() {
     setIsLoading(true);
     try {
       await authService.resetPassword({
-        email,
+        email: email.trim().toLowerCase(),
         resetToken,
         newPassword,
       });

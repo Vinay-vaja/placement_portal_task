@@ -68,12 +68,27 @@ export const tpoService = {
   // Email notifications
   notifyDriveApplicants: async (
     driveId: string,
-    customMessage?: string
-  ): Promise<ApiResponse<{ count: number; message: string }>> => {
-    return apiClient.post<ApiResponse<{ count: number; message: string }>>(
-      `/tpo/drives/${driveId}/notify`,
-      { customMessage }
-    );
+    payload?: { customMessage?: string; target?: "APPLICANTS" | "ELIGIBLE" }
+  ): Promise<
+    ApiResponse<{
+      sent: number;
+      failed: number;
+      total: number;
+      applicantCount?: number;
+      eligibleCount?: number;
+      message: string;
+    }>
+  > => {
+    return apiClient.post<
+      ApiResponse<{
+        sent: number;
+        failed: number;
+        total: number;
+        applicantCount?: number;
+        eligibleCount?: number;
+        message: string;
+      }>
+    >(`/tpo/drives/${driveId}/notify`, payload || {});
   },
 
   refactorAnnouncement: async (payload: {
@@ -137,20 +152,42 @@ export const tpoService = {
     });
   },
 
+  getSettings: async (): Promise<ApiResponse<Record<string, any>>> => {
+    return apiClient.get<ApiResponse<Record<string, any>>>("/tpo/settings");
+  },
+
+  updateSetting: async (key: string, value: any): Promise<ApiResponse<any>> => {
+    return apiClient.patch<ApiResponse<any>>("/tpo/settings", { key, value });
+  },
+
   // Export functions with automatic browser download
   downloadExport: async (endpoint: string, filename: string): Promise<void> => {
     const token = typeof window !== "undefined" ? useAuthStore.getState().token : null;
     const baseUrl = env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
-    const fullUrl = `${baseUrl}${endpoint.startsWith("/") ? endpoint : `/${endpoint}`}`;
+    const rawUrl = `${baseUrl}${endpoint.startsWith("/") ? endpoint : `/${endpoint}`}`;
+    
+    // Append token query param as extra fallback for direct streaming
+    const urlObj = new URL(rawUrl, typeof window !== "undefined" ? window.location.origin : "http://localhost:3000");
+    if (token && !urlObj.searchParams.has("token")) {
+      urlObj.searchParams.set("token", token);
+    }
 
-    const res = await fetch(fullUrl, {
+    const res = await fetch(urlObj.toString(), {
       headers: {
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
+      credentials: "include",
     });
 
     if (!res.ok) {
-      throw new Error(`Failed to export data: ${res.statusText}`);
+      let errorMsg = `Failed to export data: ${res.statusText}`;
+      try {
+        const errorJson = await res.json();
+        if (errorJson?.message) errorMsg = errorJson.message;
+      } catch {
+        // use default error message
+      }
+      throw new Error(errorMsg);
     }
 
     const blob = await res.blob();
@@ -186,6 +223,39 @@ export const tpoService = {
     await tpoService.downloadExport(
       `/tpo/drives/${driveId}/export?format=${format}`,
       `drive_${driveId}_applicants.${format}`
+    );
+  },
+
+  exportDriveEligibleStudents: async (driveId: string, format: "csv" | "xlsx" = "csv"): Promise<void> => {
+    await tpoService.downloadExport(
+      `/tpo/drives/${driveId}/export-eligible?format=${format}`,
+      `drive_${driveId}_eligible_students.${format}`
+    );
+  },
+
+  getAnnouncementRecipientCount: async (params?: {
+    branch?: string;
+    studentType?: string;
+    includeDismissed?: boolean;
+  }): Promise<ApiResponse<{ count: number }>> => {
+    return apiClient.get<ApiResponse<{ count: number }>>("/tpo/announcements/recipients-count", {
+      params: params as Record<string, string | number | boolean | undefined>,
+    });
+  },
+
+  exportCompanyWiseStudents: async (
+    format: "csv" | "xlsx" = "xlsx",
+    params?: { companyId?: string }
+  ): Promise<void> => {
+    const dateStr = new Date().toISOString().split("T")[0];
+    const queryParams = new URLSearchParams();
+    queryParams.set("format", format);
+    if (params?.companyId && params.companyId !== "ALL") {
+      queryParams.set("companyId", params.companyId);
+    }
+    await tpoService.downloadExport(
+      `/tpo/export/company-wise?${queryParams.toString()}`,
+      `ldce_company_wise_selections_${dateStr}.${format}`
     );
   },
 

@@ -110,6 +110,29 @@ export const createDriveSchema = z
   .refine(
     (data) => data.ctc !== undefined || data.minLpa !== undefined,
     { message: "CTC / Min LPA is required", path: ["ctc"] }
+  )
+  .refine(
+    (data) => {
+      const min = data.ctc ?? data.minLpa;
+      const max = data.ctcMax ?? data.maxLpa;
+      if (min !== undefined && max !== undefined && max !== null) {
+        return max >= min;
+      }
+      return true;
+    },
+    { message: "Maximum CTC must be greater than or equal to minimum CTC", path: ["ctcMax"] }
+  )
+  .refine(
+    (data) => {
+      const deadlineStr = data.applicationDeadline || data.deadline;
+      if (!deadlineStr) return true;
+      const d = new Date(deadlineStr);
+      if (isNaN(d.getTime())) return false;
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+      return d >= todayStart;
+    },
+    { message: "Application deadline cannot be in the past", path: ["applicationDeadline"] }
   );
 
 export const updateDriveSchema = z
@@ -173,4 +196,27 @@ export const updateDriveSchema = z
       .optional()
       .nullable(),
   })
-  .strict();
+  .strict()
+  .refine(
+    (data) => {
+      const min = data.ctc ?? data.minLpa;
+      const max = data.ctcMax ?? data.maxLpa;
+      if (min !== undefined && max !== undefined && max !== null) {
+        return max >= min;
+      }
+      return true;
+    },
+    { message: "Maximum CTC must be greater than or equal to minimum CTC", path: ["ctcMax"] }
+  )
+  .refine(
+    (data) => {
+      const deadlineStr = data.applicationDeadline || data.deadline;
+      if (!deadlineStr) return true;
+      const d = new Date(deadlineStr);
+      if (isNaN(d.getTime())) return false;
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+      return d >= todayStart;
+    },
+    { message: "Application deadline cannot be in the past", path: ["applicationDeadline"] }
+  );

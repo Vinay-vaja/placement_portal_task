@@ -169,9 +169,12 @@ export const getDashboard = async (req, res, next) => {
  */
 export const sendDriveNotification = async (req, res, next) => {
   try {
+    const customMessage = req.body?.customMessage || "";
+    const target = req.body?.target || req.query?.target || "APPLICANTS";
     const result = await emailService.sendDriveNotification(
       req.params.driveId,
-      req.body.customMessage
+      customMessage,
+      target
     );
     return sendSuccess(res, 200, result.message, result);
   } catch (error) {
@@ -287,6 +290,73 @@ export const exportDriveApplicants = async (req, res, next) => {
     );
 
     const filename = `drive_applicants_${req.params.driveId}_${new Date().toISOString().split("T")[0]}.${format}`;
+
+    const contentType =
+      format === "xlsx"
+        ? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        : "text/csv";
+
+    res.setHeader("Content-Type", contentType);
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    return res.send(Buffer.from(buffer));
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * GET /api/tpo/drives/:driveId/export-eligible
+ * Export eligible students for a drive as CSV or XLSX
+ */
+export const exportDriveEligibleStudents = async (req, res, next) => {
+  try {
+    const format = req.query.format === "xlsx" ? "xlsx" : "csv";
+    const buffer = await exportService.exportDriveEligibleStudents(
+      req.params.driveId,
+      format
+    );
+
+    const filename = `drive_eligible_${req.params.driveId}_${new Date().toISOString().split("T")[0]}.${format}`;
+
+    const contentType =
+      format === "xlsx"
+        ? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        : "text/csv";
+
+    res.setHeader("Content-Type", contentType);
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    return res.send(Buffer.from(buffer));
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * GET /api/tpo/announcements/recipients-count
+ * Get count of recipients matching criteria
+ */
+export const getAnnouncementRecipientsCount = async (req, res, next) => {
+  try {
+    const count = await emailService.getAnnouncementRecipientCount(req.query);
+    return sendSuccess(res, 200, "Recipients counted successfully", { count });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * GET /api/tpo/export/company-wise
+ * Export company-wise student placements as CSV or XLSX
+ */
+export const exportCompanyWiseStudents = async (req, res, next) => {
+  try {
+    const format = req.query.format === "csv" ? "csv" : "xlsx";
+    const buffer = await exportService.exportCompanyWiseStudents(
+      req.query,
+      format
+    );
+
+    const filename = `company_wise_students_${new Date().toISOString().split("T")[0]}.${format}`;
 
     const contentType =
       format === "xlsx"

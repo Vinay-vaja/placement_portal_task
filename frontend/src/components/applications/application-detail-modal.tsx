@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import toast from "react-hot-toast";
 import { Application } from "@/types";
 import { Button } from "@/components/ui/button";
 import { apiClient } from "@/lib/api-client";
@@ -66,7 +67,7 @@ export function ApplicationDetailModal({
       const blobUrl = URL.createObjectURL(blob);
       window.open(blobUrl, "_blank");
     } catch (err: any) {
-      alert(err.message || "Failed to load resume PDF");
+      toast.error(err.message || "Failed to load resume PDF");
     } finally {
       setLoadingResume(false);
     }

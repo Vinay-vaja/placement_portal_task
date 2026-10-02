@@ -100,3 +100,18 @@ export const getEligibleStudents = async (req, res, next) => {
     next(error);
   }
 };
+
+/**
+ * GET /api/drives/:id/eligibility
+ * Check eligibility of authenticated student for this drive
+ */
+export const checkEligibility = async (req, res, next) => {
+  try {
+    const driveId = req.params.id;
+    const userId = req.user?.userId;
+    const result = await driveService.checkEligibilityForStudent(userId, driveId);
+    return sendSuccess(res, 200, "Eligibility checked successfully", result);
+  } catch (error) {
+    next(error);
+  }
+};

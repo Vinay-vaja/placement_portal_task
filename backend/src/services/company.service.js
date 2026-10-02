@@ -6,10 +6,27 @@ import { parsePagination, buildPaginatedResponse } from "../utils/pagination.js"
  */
 export const createCompany = async (data) => {
   const { name, imageUrl } = data;
+  const trimmedName = (name || "").trim();
+
+  if (!trimmedName) {
+    const error = new Error("Company name is required");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  // Case-insensitive duplicate check
+  const existing = await prisma.company.findFirst({
+    where: { name: { equals: trimmedName, mode: "insensitive" } },
+  });
+  if (existing) {
+    const error = new Error(`Company with name "${trimmedName}" already exists`);
+    error.statusCode = 409;
+    throw error;
+  }
 
   const company = await prisma.company.create({
     data: {
-      name,
+      name: trimmedName,
       imageUrl: imageUrl ?? null,
     },
   });
@@ -84,9 +101,31 @@ export const updateCompany = async (companyId, data) => {
     throw error;
   }
 
+  const updateData = { ...data };
+  if (updateData.name !== undefined) {
+    const trimmedName = updateData.name.trim();
+    if (!trimmedName) {
+      const error = new Error("Company name cannot be empty");
+      error.statusCode = 400;
+      throw error;
+    }
+    const existing = await prisma.company.findFirst({
+      where: {
+        name: { equals: trimmedName, mode: "insensitive" },
+        id: { not: companyId },
+      },
+    });
+    if (existing) {
+      const error = new Error(`Company with name "${trimmedName}" already exists`);
+      error.statusCode = 409;
+      throw error;
+    }
+    updateData.name = trimmedName;
+  }
+
   const updatedCompany = await prisma.company.update({
     where: { id: companyId },
-    data,
+    data: updateData,
   });
 
   return updatedCompany;

@@ -47,6 +47,7 @@ export interface TpoAnalytics {
     median: number;
     companyWise: Array<{
       company: string;
+      companyId?: string;
       avgPackage: number;
       studentsHired: number;
       details: Array<{ name: string; role: string; package: number }>;

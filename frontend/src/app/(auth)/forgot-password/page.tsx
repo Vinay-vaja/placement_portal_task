@@ -47,7 +47,8 @@ export default function ForgotPasswordPage() {
     setIsLoading(true);
     setError(null);
     try {
-      const res = await authService.forgotPassword(email.trim());
+      const normalizedEmail = email.trim().toLowerCase();
+      const res = await authService.forgotPassword(normalizedEmail);
       setSuccessNotice(res.message || "A 6-digit verification code has been dispatched to your email.");
       setStep(2);
       setCountdown(60);
@@ -134,7 +135,8 @@ export default function ForgotPasswordPage() {
     setIsLoading(true);
     setError(null);
     try {
-      const res = await authService.verifyOtp(email.trim(), fullOtp);
+      const normalizedEmail = email.trim().toLowerCase();
+      const res = await authService.verifyOtp(normalizedEmail, fullOtp);
       const resetToken = res.data?.resetToken;
 
       if (!resetToken) {
@@ -145,7 +147,7 @@ export default function ForgotPasswordPage() {
 
       // Store in sessionStorage as fallback
       if (typeof window !== "undefined") {
-        sessionStorage.setItem("pw_reset_email", email.trim());
+        sessionStorage.setItem("pw_reset_email", normalizedEmail);
         sessionStorage.setItem("pw_reset_token", resetToken);
       }
 

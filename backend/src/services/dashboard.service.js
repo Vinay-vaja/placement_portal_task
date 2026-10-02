@@ -22,26 +22,25 @@ export const getDashboardStats = async () => {
     attendanceStats,
     placedStudentDetails,
   ] = await Promise.all([
-    // Student counts (filtered by profileLocked: true so draft/unlocked accounts do not inflate enrolled stats)
-    prisma.student.count({ where: { profileLocked: true } }),
-    prisma.student.count({ where: { verificationStatus: "VERIFIED", profileLocked: true } }),
-    prisma.student.count({ where: { verificationStatus: "PENDING", profileLocked: true } }),
-    prisma.student.count({ where: { verificationStatus: "REJECTED", profileLocked: true } }),
-    prisma.student.count({ where: { isPlaced: true, profileLocked: true } }),
-    prisma.student.count({ where: { isDismissed: true, profileLocked: true } }),
+    // Real Student counts across entire database
+    prisma.student.count(),
+    prisma.student.count({ where: { verificationStatus: "VERIFIED" } }),
+    prisma.student.count({ where: { verificationStatus: "PENDING" } }),
+    prisma.student.count({ where: { verificationStatus: "REJECTED" } }),
+    prisma.student.count({ where: { isPlaced: true } }),
+    prisma.student.count({ where: { isDismissed: true } }),
 
-    // Students by branch (locked profiles only)
+    // Students by branch (all students)
     prisma.student.groupBy({
       by: ["branch"],
       _count: { id: true },
-      where: { branch: { not: null }, profileLocked: true },
+      where: { branch: { not: null } },
     }),
 
-    // Students by type (locked profiles only)
+    // Students by type (all students)
     prisma.student.groupBy({
       by: ["studentType"],
       _count: { id: true },
-      where: { profileLocked: true },
     }),
 
     // Company & drive counts
@@ -57,14 +56,19 @@ export const getDashboardStats = async () => {
     }),
 
     // Attendance stats
-    prisma.application.aggregate({
-      where: { attendanceMarked: true },
-      _count: { id: true },
+    prisma.application.count({
+      where: {
+        OR: [
+          { attendanceMarked: true },
+          { isPresent: { not: null } },
+          { status: { in: ["SHORTLISTED", "INTERVIEWED", "OFFERED", "SELECTED"] } },
+        ],
+      },
     }),
 
-    // Placed students with package details (locked candidates)
+    // Placed students with package details
     prisma.student.findMany({
-      where: { isPlaced: true, profileLocked: true, currentPackageLpa: { not: null } },
+      where: { isPlaced: true, currentPackageLpa: { not: null } },
       select: {
         id: true,
         fullName: true,
@@ -78,7 +82,7 @@ export const getDashboardStats = async () => {
                 role: true,
                 ctc: true,
                 ctcMax: true,
-                company: { select: { name: true } },
+                company: { select: { id: true, name: true } },
               },
             },
           },
@@ -88,9 +92,9 @@ export const getDashboardStats = async () => {
   ]);
 
   // Attendance rate calculation
-  const totalAttendanceMarked = attendanceStats._count.id;
+  const totalAttendanceMarked = attendanceStats;
   const presentCount = await prisma.application.count({
-    where: { attendanceMarked: true, isPresent: true },
+    where: { isPresent: true },
   });
   const attendanceRate =
     totalAttendanceMarked > 0
@@ -117,8 +121,9 @@ export const getDashboardStats = async () => {
   placedStudentDetails.forEach((student) => {
     student.applications.forEach((app) => {
       const companyName = app.drive.company.name;
+      const companyId = app.drive.company.id;
       if (!companyMap[companyName]) {
-        companyMap[companyName] = { totalPackage: 0, count: 0, students: [] };
+        companyMap[companyName] = { companyId, totalPackage: 0, count: 0, students: [] };
       }
       const offerPackage =
         app.drive.ctcMax !== null && app.drive.ctcMax !== undefined
@@ -138,6 +143,7 @@ export const getDashboardStats = async () => {
   const companyWise = Object.entries(companyMap)
     .map(([company, data]) => ({
       company,
+      companyId: data.companyId,
       avgPackage: Math.round((data.totalPackage / data.count) * 100) / 100,
       studentsHired: data.count,
       details: data.students,

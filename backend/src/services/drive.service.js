@@ -3,6 +3,22 @@ import { parsePagination, buildPaginatedResponse } from "../utils/pagination.js"
 import { checkStudentEligibility } from "./eligibility.service.js";
 
 /**
+ * Normalize a deadline date string to end-of-day (23:59:59.999).
+ * Date-only inputs like "2026-10-15" default to midnight start (00:00:00),
+ * which means the drive effectively closes at the START of the deadline day.
+ * This ensures the drive remains open for the entire deadline day.
+ */
+function normalizeDeadlineToEndOfDay(dateInput) {
+  const d = new Date(dateInput);
+  if (isNaN(d.getTime())) return null;
+  // If it looks like a date-only string (no time component), set to end-of-day
+  if (typeof dateInput === "string" && /^\d{4}-\d{2}-\d{2}$/.test(dateInput.trim())) {
+    d.setUTCHours(23, 59, 59, 999);
+  }
+  return d;
+}
+
+/**
  * Create a new recruitment drive (TPO only)
  */
 export const createDrive = async (data) => {
@@ -106,7 +122,7 @@ export const createDrive = async (data) => {
       allowedStudentType: allowedStudentType || "ALL",
       allowedBranches: finalBranches,
       backlogsAllowed: backlogsAllowed ?? false,
-      applicationDeadline: finalDeadline ? new Date(finalDeadline) : null,
+      applicationDeadline: finalDeadline ? normalizeDeadlineToEndOfDay(finalDeadline) : null,
       status: status || "ACTIVE",
       maxSelectionsPerStudent: maxSelectionsPerStudent ? Number(maxSelectionsPerStudent) : 1,
       tpoAllowMultiple: tpoAllowMultiple ?? false,
@@ -129,18 +145,21 @@ export const getDrives = async (query = {}, userId = null, userRole = null) => {
   const { skip, take, page, limit } = parsePagination(query);
   const where = {};
 
-  if (query.status) {
+  if (query.status && query.status !== "ALL") {
     where.status = query.status;
+  } else if (userRole === "STUDENT" && !query.status) {
+    // By default, students only see active recruitment drives unless explicitly requested
+    where.status = "ACTIVE";
   }
   if (query.companyId) {
     where.companyId = query.companyId;
   }
-  if (query.allowedStudentType) {
+  if (query.allowedStudentType && query.allowedStudentType !== "ALL") {
     where.allowedStudentType = query.allowedStudentType;
   }
 
   // Filter by branches
-  if (query.branch) {
+  if (query.branch && query.branch !== "ALL") {
     const branches = query.branch.split(",").map((b) => b.trim().toUpperCase());
     where.allowedBranches = { hasSome: branches };
   }
@@ -152,40 +171,49 @@ export const getDrives = async (query = {}, userId = null, userRole = null) => {
       include: { semesterSpis: { orderBy: { semester: "asc" } } },
     });
 
-    // If student profile is missing, unlocked, or dismissed -> return 0 drives
-    if (!student || !student.profileLocked || student.isDismissed) {
+    // If student record does not exist in DB -> return 0 drives
+    if (!student) {
       return buildPaginatedResponse([], 0, page, limit);
     }
 
-    // Exclude drives student has already applied to
+    // Exclude drives student has already applied to unless includeApplied is requested
     const studentApps = await prisma.application.findMany({
       where: { studentId: student.id },
       select: { driveId: true },
     });
     const appliedDriveIds = studentApps.map((a) => a.driveId);
-    if (appliedDriveIds.length > 0) {
+    if (query.includeApplied !== "true" && appliedDriveIds.length > 0) {
       where.id = { notIn: appliedDriveIds };
     }
 
-    // Fetch candidate drives matching base filters
-    const candidateDrives = await prisma.recruitmentDrive.findMany({
-      where,
-      include: {
-        company: { select: { id: true, name: true, imageUrl: true } },
-        _count: { select: { applications: true } },
-      },
-      orderBy: { createdAt: "desc" },
+    // Fetch candidate drives matching base filters and evaluate eligibility for each
+    const [candidateDrives, total] = await Promise.all([
+      prisma.recruitmentDrive.findMany({
+        where,
+        include: {
+          company: { select: { id: true, name: true, imageUrl: true } },
+          _count: { select: { applications: true } },
+        },
+        orderBy: { createdAt: "desc" },
+        skip,
+        take,
+      }),
+      prisma.recruitmentDrive.count({ where }),
+    ]);
+
+    // Attach authoritative eligibility results { eligible: boolean, reasons: string[] }
+    const drivesWithEligibility = candidateDrives.map((drive) => {
+      const eligibilityResult = checkStudentEligibility(student, drive);
+      return {
+        ...drive,
+        eligibility: {
+          eligible: eligibilityResult.eligible,
+          reasons: eligibilityResult.reasons,
+        },
+      };
     });
 
-    // Filter candidate drives using authoritative checkStudentEligibility
-    const eligibleDrives = candidateDrives.filter(
-      (drive) => checkStudentEligibility(student, drive).eligible
-    );
-
-    const total = eligibleDrives.length;
-    const paginatedDrives = eligibleDrives.slice(skip, skip + take);
-
-    return buildPaginatedResponse(paginatedDrives, total, page, limit);
+    return buildPaginatedResponse(drivesWithEligibility, total, page, limit);
   }
 
   // Default path for non-STUDENT users (e.g. CENTRAL_TPO)
@@ -301,4 +329,41 @@ export const deleteDrive = async (driveId) => {
 
   await prisma.recruitmentDrive.delete({ where: { id: driveId } });
   return { id: driveId };
+};
+
+/**
+ * Check student eligibility for a specific drive
+ */
+export const checkEligibilityForStudent = async (userId, driveId) => {
+  const drive = await prisma.recruitmentDrive.findUnique({
+    where: { id: driveId },
+    include: {
+      company: { select: { id: true, name: true, imageUrl: true } },
+    },
+  });
+
+  if (!drive) {
+    const error = new Error("Recruitment drive not found");
+    error.statusCode = 404;
+    throw error;
+  }
+
+  const student = await prisma.student.findUnique({
+    where: { userId },
+    include: { semesterSpis: { orderBy: { semester: "asc" } } },
+  });
+
+  if (!student) {
+    return {
+      eligible: false,
+      isEligible: false,
+      reasons: ["Student profile not found. Please complete your registration."],
+    };
+  }
+
+  const result = checkStudentEligibility(student, drive);
+  return {
+    ...result,
+    isEligible: result.eligible,
+  };
 };

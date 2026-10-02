@@ -19,7 +19,20 @@ const registerSchema = z
     fullName: z.string().min(2, "Full name must be at least 2 characters"),
     email: z.string().email("Please enter a valid college email address"),
     phone: z.string().min(10, "Phone number must be at least 10 digits"),
-    dob: z.string().min(1, "Date of birth is required"),
+    dob: z
+      .string()
+      .min(1, "Date of birth is required")
+      .refine((val) => {
+        const date = new Date(val);
+        if (isNaN(date.getTime())) return false;
+        const today = new Date();
+        let age = today.getFullYear() - date.getFullYear();
+        const monthDiff = today.getMonth() - date.getMonth();
+        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < date.getDate())) {
+          age--;
+        }
+        return age >= 16 && age <= 40;
+      }, "Student must be between 16 and 40 years old"),
     studentType: z.enum(["REGULAR", "D2D"]),
     password: z.string().min(6, "Password must be at least 6 characters"),
     confirmPassword: z.string(),

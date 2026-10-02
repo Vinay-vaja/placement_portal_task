@@ -206,6 +206,29 @@ export default function StudentProfilePage() {
       setErrorMessage(null);
       setSuccessMessage(null);
 
+      // Validate DOB (16 - 40 years)
+      if (!formData.dob) {
+        throw new Error("Date of birth is required.");
+      }
+      const dobDate = new Date(formData.dob);
+      if (isNaN(dobDate.getTime())) {
+        throw new Error("Please enter a valid date of birth.");
+      }
+      const today = new Date();
+      let age = today.getFullYear() - dobDate.getFullYear();
+      const monthDiff = today.getMonth() - dobDate.getMonth();
+      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dobDate.getDate())) {
+        age--;
+      }
+      if (age < 16 || age > 40) {
+        throw new Error("Student must be between 16 and 40 years old.");
+      }
+
+      // Validate Phone
+      if (!formData.phone || formData.phone.trim().length < 10) {
+        throw new Error("Phone number must be at least 10 digits.");
+      }
+
       // Validate 10th marks
       const tenthKeys = [
         "mathsMarks",

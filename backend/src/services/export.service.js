@@ -1,6 +1,8 @@
 import ExcelJS from "exceljs";
 import prisma from "../config/prisma.js";
 import { calculateCpi, calculateCgpa } from "../utils/percentage.js";
+import * as driveService from "./drive.service.js";
+import * as eligibilityService from "./eligibility.service.js";
 
 /**
  * Export students as CSV/XLSX based on filters
@@ -12,18 +14,22 @@ export const exportStudents = async (filters = {}, format = "csv") => {
   // Build query (reuse same filter logic as student.service)
   const where = {};
 
-  if (filters.verificationStatus) where.verificationStatus = filters.verificationStatus;
-  if (filters.studentType) where.studentType = filters.studentType;
-  if (filters.profileLocked !== undefined) {
+  if (filters.verificationStatus && filters.verificationStatus !== "ALL" && filters.verificationStatus !== "") {
+    where.verificationStatus = filters.verificationStatus;
+  }
+  if (filters.studentType && filters.studentType !== "ALL" && filters.studentType !== "") {
+    where.studentType = filters.studentType;
+  }
+  if (filters.profileLocked !== undefined && filters.profileLocked !== "" && filters.profileLocked !== "ALL") {
     where.profileLocked = filters.profileLocked === "true" || filters.profileLocked === true;
   }
-  if (filters.isPlaced !== undefined) {
+  if (filters.isPlaced !== undefined && filters.isPlaced !== "" && filters.isPlaced !== "ALL") {
     where.isPlaced = filters.isPlaced === "true" || filters.isPlaced === true;
   }
-  if (filters.isDismissed !== undefined) {
+  if (filters.isDismissed !== undefined && filters.isDismissed !== "" && filters.isDismissed !== "ALL") {
     where.isDismissed = filters.isDismissed === "true" || filters.isDismissed === true;
   }
-  if (filters.branch) {
+  if (filters.branch && filters.branch !== "ALL" && filters.branch !== "") {
     const branches = filters.branch.split(",").map((b) => b.trim().toUpperCase());
     where.branch = { in: branches };
   }
@@ -31,13 +37,23 @@ export const exportStudents = async (filters = {}, format = "csv") => {
     where.tenthPercentage = { gte: parseFloat(filters.minTenth) };
   }
   if (filters.minTwelfth) {
-    where.twelfthPercentage = { gte: parseFloat(filters.minTwelfth) };
-  }
-  if (filters.search) {
+    const minVal = parseFloat(filters.minTwelfth);
     where.OR = [
-      { fullName: { contains: filters.search, mode: "insensitive" } },
-      { user: { email: { contains: filters.search, mode: "insensitive" } } },
+      { twelfthPercentage: { gte: minVal } },
+      { studentType: "D2D" },
     ];
+  }
+  if (filters.search && filters.search.trim()) {
+    const searchFilter = [
+      { fullName: { contains: filters.search.trim(), mode: "insensitive" } },
+      { user: { email: { contains: filters.search.trim(), mode: "insensitive" } } },
+    ];
+    if (where.OR) {
+      where.AND = [{ OR: where.OR }, { OR: searchFilter }];
+      delete where.OR;
+    } else {
+      where.OR = searchFilter;
+    }
   }
 
   const students = await prisma.student.findMany({
@@ -263,3 +279,196 @@ export const exportDriveApplicants = async (driveId, format = "csv") => {
   }
   return workbook.xlsx.writeBuffer();
 };
+
+/**
+ * Export company-wise student placements/applications as CSV or XLSX
+ * @param {Object} query - { companyId?: string, format?: 'csv' | 'xlsx' }
+ * @param {string} format - "csv" or "xlsx"
+ * @returns {Buffer} file buffer
+ */
+export const exportCompanyWiseStudents = async (query = {}, format = "xlsx") => {
+  const where = {
+    status: "SELECTED",
+  };
+
+  if (query.companyId && query.companyId !== "ALL") {
+    where.drive = { companyId: query.companyId };
+  }
+
+  const applications = await prisma.application.findMany({
+    where,
+    include: {
+      drive: {
+        include: {
+          company: { select: { id: true, name: true } },
+        },
+      },
+      student: {
+        include: {
+          user: { select: { email: true } },
+          semesterSpis: { orderBy: { semester: "asc" } },
+        },
+      },
+    },
+    orderBy: [
+      { drive: { company: { name: "asc" } } },
+      { appliedAt: "desc" },
+    ],
+  });
+
+  const workbook = new ExcelJS.Workbook();
+  workbook.creator = "LDCE Central Placement Cell";
+  workbook.created = new Date();
+
+  const sheet = workbook.addWorksheet("Company Selections");
+
+  sheet.columns = [
+    { header: "Company Name", key: "companyName", width: 25 },
+    { header: "Job Role", key: "role", width: 22 },
+    { header: "Package (LPA)", key: "package", width: 15 },
+    { header: "Student Name", key: "studentName", width: 25 },
+    { header: "Student Email", key: "email", width: 30 },
+    { header: "Phone Number", key: "phone", width: 16 },
+    { header: "Branch", key: "branch", width: 14 },
+    { header: "Student Type", key: "studentType", width: 12 },
+    { header: "10th %", key: "tenthPercentage", width: 10 },
+    { header: "12th %", key: "twelfthPercentage", width: 10 },
+    { header: "D2D CGPA", key: "d2dCgpa", width: 12 },
+    { header: "CPI", key: "cpi", width: 10 },
+    { header: "CGPA", key: "cgpa", width: 10 },
+    { header: "Selection Status", key: "status", width: 16 },
+    { header: "Selection Date", key: "offerDate", width: 16 },
+  ];
+
+  // Professional header styling
+  const headerRow = sheet.getRow(1);
+  headerRow.height = 26;
+  headerRow.font = { bold: true, color: { argb: "FFFFFFFF" }, size: 11 };
+  headerRow.fill = {
+    type: "pattern",
+    pattern: "solid",
+    fgColor: { argb: "FF0071E3" },
+  };
+  headerRow.alignment = { vertical: "middle", horizontal: "center" };
+
+  applications.forEach((app) => {
+    const student = app.student;
+    const drive = app.drive;
+    const company = drive?.company;
+    const cpi = calculateCpi(student.semesterSpis);
+    const cgpa = calculateCgpa(student.semesterSpis);
+
+    const offerPkg =
+      student.currentPackageLpa ??
+      (drive.ctcMax ? `${drive.ctc} - ${drive.ctcMax}` : drive.ctc);
+
+    sheet.addRow({
+      companyName: company?.name || "N/A",
+      role: drive?.role || "Engineering Role",
+      package: offerPkg,
+      studentName: student.fullName,
+      email: student.user?.email || "",
+      phone: student.phone,
+      branch: student.branch || "",
+      studentType: student.studentType,
+      tenthPercentage: student.tenthPercentage ?? "",
+      twelfthPercentage: student.twelfthPercentage ?? "",
+      d2dCgpa: student.d2dCgpa ?? "",
+      cpi: cpi ?? "",
+      cgpa: cgpa ?? "",
+      status: app.status,
+      offerDate: new Date(app.updatedAt || app.appliedAt).toLocaleDateString("en-IN"),
+    });
+  });
+
+  if (format === "csv") {
+    return workbook.csv.writeBuffer();
+  }
+  return workbook.xlsx.writeBuffer();
+};
+
+/**
+ * Export eligible students for a specific drive as CSV or XLSX
+ * @param {string} driveId
+ * @param {string} format - "csv" or "xlsx"
+ * @returns {Buffer} file buffer
+ */
+export const exportDriveEligibleStudents = async (driveId, format = "csv") => {
+  const drive = await driveService.getDriveById(driveId);
+  if (!drive) {
+    const error = new Error("Drive not found");
+    error.statusCode = 404;
+    throw error;
+  }
+
+  const eligibleStudents = await eligibilityService.getEligibleStudents(drive);
+
+  // Check if any of these eligible students have applied
+  const existingApplications = await prisma.application.findMany({
+    where: { driveId },
+    select: { studentId: true, status: true, appliedAt: true },
+  });
+  const appMap = new Map(existingApplications.map((a) => [a.studentId, a]));
+
+  const workbook = new ExcelJS.Workbook();
+  workbook.creator = "LDCE Central Placement Cell";
+  workbook.created = new Date();
+
+  const safeTitle = `Eligible - ${drive.company.name}`.replace(/[\/\\?*:[\]]/g, "_").substring(0, 31);
+  const sheet = workbook.addWorksheet(safeTitle);
+
+  sheet.columns = [
+    { header: "Company Name", key: "companyName", width: 22 },
+    { header: "Job Role", key: "role", width: 20 },
+    { header: "CTC (LPA)", key: "ctc", width: 14 },
+    { header: "Student Name", key: "fullName", width: 25 },
+    { header: "Email Address", key: "email", width: 30 },
+    { header: "Contact Number", key: "phone", width: 16 },
+    { header: "Branch", key: "branch", width: 14 },
+    { header: "Student Type", key: "studentType", width: 12 },
+    { header: "10th %", key: "tenthPercentage", width: 10 },
+    { header: "12th %", key: "twelfthPercentage", width: 10 },
+    { header: "D2D CGPA", key: "d2dCgpa", width: 10 },
+    { header: "CPI", key: "cpi", width: 8 },
+    { header: "CGPA", key: "cgpa", width: 8 },
+    { header: "Placement Status", key: "placementStatus", width: 16 },
+    { header: "Application Status", key: "appStatus", width: 18 },
+  ];
+
+  sheet.getRow(1).height = 24;
+  sheet.getRow(1).fill = {
+    type: "pattern",
+    pattern: "solid",
+    fgColor: { argb: "FF0071E3" },
+  };
+  sheet.getRow(1).font = { bold: true, color: { argb: "FFFFFFFF" }, size: 11 };
+
+  eligibleStudents.forEach((student) => {
+    const app = appMap.get(student.id);
+    const ctcStr = drive.ctcMax ? `${drive.ctc} - ${drive.ctcMax}` : `${drive.ctc}`;
+
+    sheet.addRow({
+      companyName: drive.company.name,
+      role: drive.role,
+      ctc: ctcStr,
+      fullName: student.fullName,
+      email: student.user?.email || "",
+      phone: student.phone || "",
+      branch: student.branch || "",
+      studentType: student.studentType,
+      tenthPercentage: student.tenthPercentage !== null ? student.tenthPercentage : "",
+      twelfthPercentage: student.twelfthPercentage !== null ? student.twelfthPercentage : "",
+      d2dCgpa: student.d2dCgpa !== null ? student.d2dCgpa : "",
+      cpi: student.cpi !== null ? student.cpi : "",
+      cgpa: student.cgpa !== null ? student.cgpa : "",
+      placementStatus: student.isPlaced ? `Placed (${student.currentPackageLpa} LPA)` : "Unplaced",
+      appStatus: app ? `Applied (${app.status})` : "Not Applied",
+    });
+  });
+
+  if (format === "csv") {
+    return workbook.csv.writeBuffer();
+  }
+  return workbook.xlsx.writeBuffer();
+};
+

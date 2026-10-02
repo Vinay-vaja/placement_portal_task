@@ -25,6 +25,24 @@ import { parsePagination, buildPaginatedResponse, parseSorting } from "../utils/
 export const applyToDrive = async (userId, driveId, applicationData) => {
   const { termsAccepted, resumeBuffer } = applicationData;
 
+  // 0. Check global TPO setting: placement_active
+  const placementSetting = await prisma.tpoSetting.findUnique({
+    where: { key: "placement_active" },
+  });
+  if (placementSetting) {
+    let isActive = true;
+    try {
+      isActive = typeof placementSetting.value === "boolean" ? placementSetting.value : JSON.parse(placementSetting.value);
+    } catch {
+      isActive = placementSetting.value === "true";
+    }
+    if (!isActive) {
+      const error = new Error("Campus placement drive applications are currently paused by the Central TPO cell");
+      error.statusCode = 403;
+      throw error;
+    }
+  }
+
   // 1. Get student with SPIs for eligibility check
   const student = await prisma.student.findUnique({
     where: { userId },
@@ -286,11 +304,17 @@ export const updateApplicationStatus = async (applicationId, status) => {
     throw error;
   }
 
+  const appUpdateData = { status };
+  if (status !== "APPLIED") {
+    // When an applicant moves to any next round/stage, default attendance to Present
+    appUpdateData.isPresent = true;
+  }
+
   // If status is SELECTED, also update student's placement tracking
   const updateOperations = [
     prisma.application.update({
       where: { id: applicationId },
-      data: { status },
+      data: appUpdateData,
       include: {
         student: {
           select: {
@@ -345,6 +369,45 @@ export const updateApplicationStatus = async (applicationId, status) => {
         },
       })
     );
+  } else if (application.status === "SELECTED" && status !== "SELECTED") {
+    // Application was previously SELECTED, now demoted or revoked.
+    // Recalculate remaining offers or revoke placement status if no offers remain.
+    const remainingSelected = await prisma.application.findMany({
+      where: {
+        studentId: application.studentId,
+        status: "SELECTED",
+        id: { not: applicationId },
+      },
+      include: {
+        drive: { select: { ctc: true, ctcMax: true } },
+      },
+    });
+
+    if (remainingSelected.length > 0) {
+      const remainingPackages = remainingSelected.map((a) =>
+        a.drive.ctcMax ? (a.drive.ctc + a.drive.ctcMax) / 2 : a.drive.ctc
+      );
+      const newHighest = Math.max(...remainingPackages);
+      updateOperations.push(
+        prisma.student.update({
+          where: { id: application.studentId },
+          data: {
+            isPlaced: true,
+            currentPackageLpa: newHighest,
+          },
+        })
+      );
+    } else {
+      updateOperations.push(
+        prisma.student.update({
+          where: { id: application.studentId },
+          data: {
+            isPlaced: false,
+            currentPackageLpa: null,
+          },
+        })
+      );
+    }
   }
 
   const results = await prisma.$transaction(updateOperations);

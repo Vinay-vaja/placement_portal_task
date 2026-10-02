@@ -6,6 +6,19 @@ const BRANCHES = [
   "ENVIRONMENTAL", "IC", "ROBOTICS", "AUTOMOBILE",
 ];
 
+const validateAgeBetween16And40 = (val) => {
+  if (!val) return false;
+  const date = new Date(val);
+  if (isNaN(date.getTime())) return false;
+  const today = new Date();
+  let age = today.getFullYear() - date.getFullYear();
+  const monthDiff = today.getMonth() - date.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < date.getDate())) {
+    age--;
+  }
+  return age >= 16 && age <= 40;
+};
+
 const marksSchema = z
   .number()
   .min(0, "Marks cannot be negative")
@@ -36,10 +49,10 @@ export const profileSubmitSchema = z
       .regex(/^\+?[\d\s\-()]{10,15}$/, "Invalid phone number format"),
     dob: z
       .string({ required_error: "Date of birth is required" })
-      .refine((val) => {
-        const date = new Date(val);
-        return !isNaN(date.getTime()) && date < new Date();
-      }, "Date of birth must be a valid date in the past"),
+      .refine(
+        validateAgeBetween16And40,
+        "Student must be between 16 and 40 years old"
+      ),
 
     branch: z.enum(BRANCHES, {
       errorMap: () => ({
@@ -150,10 +163,10 @@ export const profileUpdateSchema = z
       .optional(),
     dob: z
       .string()
-      .refine((val) => {
-        const date = new Date(val);
-        return !isNaN(date.getTime()) && date < new Date();
-      }, "Invalid date of birth")
+      .refine(
+        validateAgeBetween16And40,
+        "Student must be between 16 and 40 years old"
+      )
       .optional(),
     branch: z.enum(BRANCHES).optional(),
     studentType: z.enum(["REGULAR", "D2D"]).optional(),
