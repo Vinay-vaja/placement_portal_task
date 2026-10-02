@@ -147,10 +147,14 @@ export const sendCustomAnnouncement = async ({
   filters = {},
 }) => {
   // Build student query based on filters
-  const where = {
-    isDismissed: false,
-  };
+  const where = {};
 
+  if (filters.includeDismissed === "false" || filters.includeDismissed === false) {
+    where.isDismissed = false;
+  }
+  if (filters.isDismissed !== undefined && filters.isDismissed !== "" && filters.isDismissed !== "ALL") {
+    where.isDismissed = filters.isDismissed === "true" || filters.isDismissed === true;
+  }
   if (filters.profileLocked !== undefined && filters.profileLocked !== "" && filters.profileLocked !== "ALL") {
     where.profileLocked = filters.profileLocked === "true" || filters.profileLocked === true;
   }
@@ -374,3 +378,37 @@ export const sendPasswordResetOtpEmail = async (email, otp, name = "Student") =>
 
   return results[0];
 };
+
+/**
+ * Get count of students matching announcement filters
+ * @param {Object} filters
+ * @returns {number} matching student count
+ */
+export const getAnnouncementRecipientCount = async (filters = {}) => {
+  const where = {};
+  if (filters.includeDismissed === "false" || filters.includeDismissed === false) {
+    where.isDismissed = false;
+  }
+  if (filters.isDismissed !== undefined && filters.isDismissed !== "" && filters.isDismissed !== "ALL") {
+    where.isDismissed = filters.isDismissed === "true" || filters.isDismissed === true;
+  }
+  if (filters.profileLocked !== undefined && filters.profileLocked !== "" && filters.profileLocked !== "ALL") {
+    where.profileLocked = filters.profileLocked === "true" || filters.profileLocked === true;
+  }
+  if (filters.branch && filters.branch !== "ALL" && filters.branch !== "") {
+    const branches = filters.branch.split(",").map((b) => b.trim().toUpperCase());
+    where.branch = { in: branches };
+  }
+  if (filters.studentType && filters.studentType !== "ALL" && filters.studentType !== "") {
+    where.studentType = filters.studentType;
+  }
+  if (filters.verificationStatus && filters.verificationStatus !== "ALL" && filters.verificationStatus !== "") {
+    where.verificationStatus = filters.verificationStatus;
+  }
+  if (filters.isPlaced !== undefined && filters.isPlaced !== "" && filters.isPlaced !== "ALL") {
+    where.isPlaced = filters.isPlaced === "true" || filters.isPlaced === true;
+  }
+
+  return prisma.student.count({ where });
+};
+

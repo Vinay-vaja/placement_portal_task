@@ -673,46 +673,48 @@ export default function StudentDrivesPage() {
 
       {/* Segmented Filter Bar & Search */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-1">
-        <div className="inline-flex p-1 rounded-2xl bg-[#F5F5F7] border border-black/[0.06] self-start sm:self-auto">
-          <button
-            type="button"
-            onClick={() => setActiveTab("upcoming")}
-            className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all flex items-center gap-2 ${
-              activeTab === "upcoming"
-                ? "bg-white text-[#1D1D1F] shadow-xs"
-                : "text-[#86868B] hover:text-[#1D1D1F]"
-            }`}
-          >
-            <Sparkles className="h-3.5 w-3.5" />
-            Upcoming Drives ({upcomingDrives.length})
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab("applied")}
-            className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all flex items-center gap-2 ${
-              activeTab === "applied"
-                ? "bg-white text-[#1D1D1F] shadow-xs"
-                : "text-[#86868B] hover:text-[#1D1D1F]"
-            }`}
-          >
-            <Send className="h-3.5 w-3.5" />
-            Applied Drives ({applications.length})
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab("past")}
-            className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all flex items-center gap-2 ${
-              activeTab === "past"
-                ? "bg-white text-[#1D1D1F] shadow-xs"
-                : "text-[#86868B] hover:text-[#1D1D1F]"
-            }`}
-          >
-            <Clock className="h-3.5 w-3.5" />
-            Past Drives ({pastDrives.length})
-          </button>
+        <div className="overflow-x-auto -mx-2 px-2 sm:mx-0 sm:px-0 scrollbar-none">
+          <div className="inline-flex p-1 rounded-2xl bg-[#F5F5F7] border border-black/[0.06] min-w-max">
+            <button
+              type="button"
+              onClick={() => setActiveTab("upcoming")}
+              className={`px-3 sm:px-4 py-2 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 whitespace-nowrap ${
+                activeTab === "upcoming"
+                  ? "bg-white text-[#1D1D1F] shadow-xs"
+                  : "text-[#86868B] hover:text-[#1D1D1F]"
+              }`}
+            >
+              <Sparkles className="h-3.5 w-3.5 shrink-0" />
+              Upcoming ({upcomingDrives.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab("applied")}
+              className={`px-3 sm:px-4 py-2 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 whitespace-nowrap ${
+                activeTab === "applied"
+                  ? "bg-white text-[#1D1D1F] shadow-xs"
+                  : "text-[#86868B] hover:text-[#1D1D1F]"
+              }`}
+            >
+              <Send className="h-3.5 w-3.5 shrink-0" />
+              Applied ({applications.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab("past")}
+              className={`px-3 sm:px-4 py-2 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 whitespace-nowrap ${
+                activeTab === "past"
+                  ? "bg-white text-[#1D1D1F] shadow-xs"
+                  : "text-[#86868B] hover:text-[#1D1D1F]"
+              }`}
+            >
+              <Clock className="h-3.5 w-3.5 shrink-0" />
+              Past ({pastDrives.length})
+            </button>
+          </div>
         </div>
 
-        <div className="relative min-w-[240px]">
+        <div className="relative w-full sm:w-auto sm:min-w-[240px]">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[#86868B]" />
           <input
             type="text"
@@ -798,7 +800,7 @@ export default function StudentDrivesPage() {
             </p>
           </Card>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-5">
             {filteredUpcoming.map((drive) => {
               const companyTitle = drive.company?.name || (drive as any).companyName || "Recruiting Company";
               const jobTitle = drive.role || (drive as any).jobRole || "Engineering Role";
@@ -820,67 +822,67 @@ export default function StudentDrivesPage() {
               return (
                 <Card
                   key={drive.id}
-                  className="rounded-3xl border border-black/[0.08] bg-white shadow-[0_2px_12px_rgba(0,0,0,0.03)] hover:shadow-[0_4px_20px_rgba(0,0,0,0.06)] transition-all flex flex-col justify-between"
+                  className="rounded-3xl border border-black/[0.08] bg-white shadow-[0_2px_12px_rgba(0,0,0,0.03)] hover:shadow-[0_4px_20px_rgba(0,0,0,0.06)] transition-all flex flex-col justify-between overflow-hidden"
                 >
                   <CardHeader className="pb-3">
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-3">
-                        <CompanyLogo src={companyLogo} name={companyTitle} />
-                        <div className="min-w-0">
-                          <CardTitle className="text-base font-semibold text-[#1D1D1F] truncate">
+                    <div className="flex items-start gap-3">
+                      <CompanyLogo src={companyLogo} name={companyTitle} />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-start justify-between gap-2">
+                          <CardTitle className="text-sm sm:text-base font-semibold text-[#1D1D1F] truncate">
                             {companyTitle}
                           </CardTitle>
-                          <p className="text-xs font-medium text-[#0071E3] truncate">{jobTitle}</p>
-                          {brochureUrl && (
-                            <a
-                              href={brochureUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1 text-[11px] text-[#0071E3] hover:underline font-medium mt-0.5"
-                            >
-                              <ExternalLink className="h-3 w-3" /> Brochure
-                            </a>
-                          )}
+                          <div className="flex items-center gap-1 shrink-0">
+                            {drive.eligibility ? (
+                              drive.eligibility.eligible ? (
+                                <span className="px-1.5 py-0.5 rounded-full text-[9px] sm:text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 whitespace-nowrap">
+                                  ELIGIBLE
+                                </span>
+                              ) : (
+                                <span className="px-1.5 py-0.5 rounded-full text-[9px] sm:text-[10px] font-semibold bg-rose-50 text-rose-700 border border-rose-200 whitespace-nowrap">
+                                  INELIGIBLE
+                                </span>
+                              )
+                            ) : null}
+                            <span className="px-1.5 py-0.5 rounded-full text-[9px] sm:text-[10px] font-medium bg-[#34C759]/10 text-[#28A745] border border-[#34C759]/20 whitespace-nowrap">
+                              OPEN
+                            </span>
+                          </div>
                         </div>
-                      </div>
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        {drive.eligibility ? (
-                          drive.eligibility.eligible ? (
-                            <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                              ELIGIBLE
-                            </span>
-                          ) : (
-                            <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-rose-50 text-rose-700 border border-rose-200">
-                              INELIGIBLE
-                            </span>
-                          )
-                        ) : null}
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-[#34C759]/10 text-[#28A745] border border-[#34C759]/20">
-                          OPEN
-                        </span>
+                        <p className="text-xs font-medium text-[#0071E3] truncate">{jobTitle}</p>
+                        {brochureUrl && (
+                          <a
+                            href={brochureUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-[11px] text-[#0071E3] hover:underline font-medium mt-0.5"
+                          >
+                            <ExternalLink className="h-3 w-3 shrink-0" /> Brochure
+                          </a>
+                        )}
                       </div>
                     </div>
                   </CardHeader>
 
-                  <CardContent className="space-y-4 pt-1 text-xs">
-                    <div className="grid grid-cols-2 gap-2 bg-[#F5F5F7]/70 p-3 rounded-2xl border border-black/[0.04]">
-                      <div>
+                  <CardContent className="space-y-3 pt-1 text-xs">
+                    <div className="grid grid-cols-2 gap-x-3 gap-y-2 bg-[#F5F5F7]/70 p-3 rounded-2xl border border-black/[0.04]">
+                      <div className="min-w-0">
                         <span className="text-[10px] font-medium text-[#86868B] block">Package (CTC)</span>
-                        <span className="font-semibold text-[#1D1D1F]">{ctcDisplay}</span>
+                        <span className="font-semibold text-[#1D1D1F] truncate block">{ctcDisplay}</span>
                       </div>
-                      <div>
+                      <div className="min-w-0">
                         <span className="text-[10px] font-medium text-[#86868B] block">Min CPI</span>
-                        <span className="font-semibold text-[#0071E3]">
+                        <span className="font-semibold text-[#0071E3] truncate block">
                           {drive.minCpi ? `${drive.minCpi} CPI` : "No Cutoff"}
                         </span>
                       </div>
-                      <div>
+                      <div className="min-w-0">
                         <span className="text-[10px] font-medium text-[#86868B] block">Location</span>
                         <span className="font-medium text-[#1D1D1F] truncate block">{drive.location || "On-site"}</span>
                       </div>
-                      <div>
+                      <div className="min-w-0">
                         <span className="text-[10px] font-medium text-[#86868B] block">Deadline</span>
-                        <span className="font-medium text-[#1D1D1F] block">{deadlineDisplay}</span>
+                        <span className="font-medium text-[#1D1D1F] truncate block">{deadlineDisplay}</span>
                       </div>
                     </div>
 
@@ -897,7 +899,7 @@ export default function StudentDrivesPage() {
                           branchesList.map((b: string) => (
                             <span
                               key={b}
-                              className="rounded-full bg-[#F5F5F7] px-2.5 py-0.5 text-[10px] font-medium text-[#1D1D1F] border border-black/[0.06]"
+                              className="rounded-full bg-[#F5F5F7] px-2 py-0.5 text-[10px] font-medium text-[#1D1D1F] border border-black/[0.06]"
                             >
                               {b}
                             </span>
@@ -931,33 +933,33 @@ export default function StudentDrivesPage() {
                       <Button
                         variant="outline"
                         onClick={() => setDetailsModalDrive(drive)}
-                        className="flex-1 text-xs font-medium h-9.5 gap-1.5 border-black/[0.1] text-[#1D1D1F] hover:bg-[#F5F5F7]"
+                        className="flex-1 text-xs font-medium h-9 gap-1.5 border-black/[0.1] text-[#1D1D1F] hover:bg-[#F5F5F7]"
                       >
-                        <FileText className="h-3.5 w-3.5 text-[#86868B]" /> View Details
+                        <FileText className="h-3.5 w-3.5 text-[#86868B] shrink-0" /> Details
                       </Button>
                       {drive.eligibility && !drive.eligibility.eligible ? (
                         <Button
                           variant="outline"
                           onClick={() => setDetailsModalDrive(drive)}
-                          className="flex-1 text-xs font-medium h-9.5 gap-1 border-rose-200 text-rose-700 bg-rose-50 hover:bg-rose-100"
+                          className="flex-1 text-xs font-medium h-9 gap-1 border-rose-200 text-rose-700 bg-rose-50 hover:bg-rose-100"
                         >
-                          <AlertCircle className="h-3.5 w-3.5 text-rose-500" /> Ineligible
+                          <AlertCircle className="h-3.5 w-3.5 text-rose-500 shrink-0" /> Ineligible
                         </Button>
                       ) : isVerified ? (
                         <Button
                           variant="primary"
                           onClick={() => openApplyModal(drive.id)}
-                          className="flex-1 text-xs font-medium h-9.5 gap-1.5 bg-[#0071E3] hover:bg-[#0077ED]"
+                          className="flex-1 text-xs font-medium h-9 gap-1.5 bg-[#0071E3] hover:bg-[#0077ED]"
                         >
-                          <Send className="h-3.5 w-3.5" /> Apply
+                          <Send className="h-3.5 w-3.5 shrink-0" /> Apply
                         </Button>
                       ) : (
                         <Button
                           variant="outline"
                           onClick={() => openApplyModal(drive.id)}
-                          className="flex-1 text-xs font-medium h-9.5 gap-1 border-black/[0.1] text-amber-800 bg-amber-50 hover:bg-amber-100"
+                          className="flex-1 text-xs font-medium h-9 gap-1 border-black/[0.1] text-amber-800 bg-amber-50 hover:bg-amber-100"
                         >
-                          <Lock className="h-3.5 w-3.5 text-amber-600" /> Apply
+                          <Lock className="h-3.5 w-3.5 text-amber-600 shrink-0" /> Apply
                         </Button>
                       )}
                     </div>
@@ -993,7 +995,7 @@ export default function StudentDrivesPage() {
             )}
           </Card>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-5">
             {filteredApplied.map((app) => {
               const drive = app.drive;
               const companyTitle = drive?.company?.name || (drive as any)?.companyName || "Recruiting Company";
@@ -1020,26 +1022,26 @@ export default function StudentDrivesPage() {
                   className="rounded-3xl border border-black/[0.08] bg-white shadow-[0_2px_12px_rgba(0,0,0,0.03)] hover:shadow-[0_4px_20px_rgba(0,0,0,0.06)] transition-all flex flex-col justify-between"
                 >
                   <CardHeader className="pb-3">
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-3">
-                        <CompanyLogo src={companyLogo} name={companyTitle} />
-                        <div className="min-w-0">
-                          <CardTitle className="text-base font-semibold text-[#1D1D1F] truncate">
+                    <div className="flex items-start gap-3">
+                      <CompanyLogo src={companyLogo} name={companyTitle} />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-start justify-between gap-2">
+                          <CardTitle className="text-sm sm:text-base font-semibold text-[#1D1D1F] truncate">
                             {companyTitle}
                           </CardTitle>
-                          <p className="text-xs font-medium text-[#0071E3] truncate">{jobRole}</p>
-                          <span className="text-[10px] text-[#86868B] block mt-0.5">
-                            Applied: {new Date(app.appliedAt || app.createdAt).toLocaleDateString()}
+                          <span className={`px-2 py-0.5 rounded-full text-[9px] sm:text-[10.5px] font-bold border whitespace-nowrap shrink-0 ${statusColor}`}>
+                            {app.status === "SELECTED"
+                              ? "🎉 SELECTED"
+                              : app.status === "SHORTLISTED"
+                              ? "⭐ SHORTLISTED"
+                              : app.status}
                           </span>
                         </div>
+                        <p className="text-xs font-medium text-[#0071E3] truncate">{jobRole}</p>
+                        <span className="text-[10px] text-[#86868B] block mt-0.5">
+                          Applied: {new Date(app.appliedAt || app.createdAt).toLocaleDateString()}
+                        </span>
                       </div>
-                      <span className={`px-2.5 py-0.5 rounded-full text-[10.5px] font-bold border ${statusColor}`}>
-                        {app.status === "SELECTED"
-                          ? "🎉 SELECTED"
-                          : app.status === "SHORTLISTED"
-                          ? "⭐ SHORTLISTED"
-                          : app.status}
-                      </span>
                     </div>
                   </CardHeader>
 
@@ -1109,7 +1111,7 @@ export default function StudentDrivesPage() {
             </p>
           </Card>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-5">
             {filteredPast.map((drive) => {
               const companyTitle = drive.company?.name || (drive as any).companyName || "Recruiting Company";
               const jobTitle = drive.role || (drive as any).jobRole || "Engineering Role";
@@ -1126,19 +1128,19 @@ export default function StudentDrivesPage() {
                   className="rounded-3xl border border-black/[0.08] bg-[#F5F5F7]/40 shadow-xs flex flex-col justify-between opacity-90 hover:opacity-100 transition-opacity"
                 >
                   <CardHeader className="pb-3">
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-3">
-                        <CompanyLogo src={companyLogo} name={companyTitle} />
-                        <div className="min-w-0">
-                          <CardTitle className="text-base font-semibold text-[#1D1D1F] truncate">
+                    <div className="flex items-start gap-3">
+                      <CompanyLogo src={companyLogo} name={companyTitle} />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-start justify-between gap-2">
+                          <CardTitle className="text-sm sm:text-base font-semibold text-[#1D1D1F] truncate">
                             {companyTitle}
                           </CardTitle>
-                          <p className="text-xs font-medium text-[#86868B] truncate">{jobTitle}</p>
+                          <span className="px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] font-bold bg-slate-200 text-slate-700 border border-slate-300 whitespace-nowrap shrink-0">
+                            CLOSED
+                          </span>
                         </div>
+                        <p className="text-xs font-medium text-[#86868B] truncate">{jobTitle}</p>
                       </div>
-                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-200 text-slate-700 border border-slate-300">
-                        CLOSED
-                      </span>
                     </div>
                   </CardHeader>
 

@@ -212,6 +212,23 @@ export const tpoService = {
     );
   },
 
+  exportDriveEligibleStudents: async (driveId: string, format: "csv" | "xlsx" = "csv"): Promise<void> => {
+    await tpoService.downloadExport(
+      `/tpo/drives/${driveId}/export-eligible?format=${format}`,
+      `drive_${driveId}_eligible_students.${format}`
+    );
+  },
+
+  getAnnouncementRecipientCount: async (params?: {
+    branch?: string;
+    studentType?: string;
+    includeDismissed?: boolean;
+  }): Promise<ApiResponse<{ count: number }>> => {
+    return apiClient.get<ApiResponse<{ count: number }>>("/tpo/announcements/recipients-count", {
+      params: params as Record<string, string | number | boolean | undefined>,
+    });
+  },
+
   exportCompanyWiseStudents: async (
     format: "csv" | "xlsx" = "xlsx",
     params?: { companyId?: string }

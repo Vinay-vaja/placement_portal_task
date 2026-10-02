@@ -61,12 +61,18 @@ router.post("/drives/:driveId/mark-attendance", applicationController.bulkMarkAt
 // GET /api/tpo/drives/:driveId/export - export drive applicants
 router.get("/drives/:driveId/export", tpoController.exportDriveApplicants);
 
+// GET /api/tpo/drives/:driveId/export-eligible - export drive eligible students
+router.get("/drives/:driveId/export-eligible", tpoController.exportDriveEligibleStudents);
+
 // ============================
 // Email & Announcements
 // ============================
 
 // POST /api/tpo/drives/:driveId/notify - send drive notification emails
 router.post("/drives/:driveId/notify", tpoController.sendDriveNotification);
+
+// GET /api/tpo/announcements/recipients-count - get count of target recipients
+router.get("/announcements/recipients-count", tpoController.getAnnouncementRecipientsCount);
 
 // POST /api/tpo/announcements/refactor - AI refactor rough notes into styled HTML email
 router.post("/announcements/refactor", tpoController.refactorAnnouncement);

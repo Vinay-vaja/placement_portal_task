@@ -305,6 +305,46 @@ export const exportDriveApplicants = async (req, res, next) => {
 };
 
 /**
+ * GET /api/tpo/drives/:driveId/export-eligible
+ * Export eligible students for a drive as CSV or XLSX
+ */
+export const exportDriveEligibleStudents = async (req, res, next) => {
+  try {
+    const format = req.query.format === "xlsx" ? "xlsx" : "csv";
+    const buffer = await exportService.exportDriveEligibleStudents(
+      req.params.driveId,
+      format
+    );
+
+    const filename = `drive_eligible_${req.params.driveId}_${new Date().toISOString().split("T")[0]}.${format}`;
+
+    const contentType =
+      format === "xlsx"
+        ? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        : "text/csv";
+
+    res.setHeader("Content-Type", contentType);
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    return res.send(Buffer.from(buffer));
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * GET /api/tpo/announcements/recipients-count
+ * Get count of recipients matching criteria
+ */
+export const getAnnouncementRecipientsCount = async (req, res, next) => {
+  try {
+    const count = await emailService.getAnnouncementRecipientCount(req.query);
+    return sendSuccess(res, 200, "Recipients counted successfully", { count });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
  * GET /api/tpo/export/company-wise
  * Export company-wise student placements as CSV or XLSX
  */

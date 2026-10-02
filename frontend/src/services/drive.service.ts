@@ -31,8 +31,34 @@ export const driveService = {
     return apiClient.get<ApiResponse<EligibilityResult>>(`/drives/${driveId}/eligibility`);
   },
 
-  getEligibleStudents: async (driveId: string): Promise<ApiResponse<StudentProfile[]>> => {
-    return apiClient.get<ApiResponse<StudentProfile[]>>(`/drives/${driveId}/eligible-students`);
+  getEligibleStudents: async (
+    driveId: string
+  ): Promise<
+    ApiResponse<{
+      driveId: string;
+      company: any;
+      role: string;
+      eligibleCount: number;
+      students: (StudentProfile & {
+        cpi?: number;
+        cgpa?: number;
+        eligibility?: { eligible: boolean; reasons: string[] };
+      })[];
+    }>
+  > => {
+    return apiClient.get<
+      ApiResponse<{
+        driveId: string;
+        company: any;
+        role: string;
+        eligibleCount: number;
+        students: (StudentProfile & {
+          cpi?: number;
+          cgpa?: number;
+          eligibility?: { eligible: boolean; reasons: string[] };
+        })[];
+      }>
+    >(`/drives/${driveId}/eligible-students`);
   },
 
   applyToDrive: async (driveId: string, formData: FormData): Promise<ApiResponse<Application>> => {
