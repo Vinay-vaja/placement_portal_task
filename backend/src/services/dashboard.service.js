@@ -61,7 +61,7 @@ export const getDashboardStats = async () => {
         OR: [
           { attendanceMarked: true },
           { isPresent: { not: null } },
-          { status: { in: ["SHORTLISTED", "INTERVIEWED", "OFFERED", "SELECTED"] } },
+          { status: { in: ["SHORTLISTED", "SELECTED", "REJECTED"] } },
         ],
       },
     }),
