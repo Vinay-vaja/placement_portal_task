@@ -103,7 +103,10 @@ export const getStudentProfile = async (userId) => {
  * @param {Object} profileData - validated profile data
  */
 export const submitStudentProfile = async (userId, profileData) => {
-  const student = await prisma.student.findUnique({ where: { userId } });
+  const student = await prisma.student.findUnique({
+    where: { userId },
+    include: { semesterSpis: true },
+  });
 
   if (!student) {
     const error = new Error("Student profile not found");
@@ -116,6 +119,31 @@ export const submitStudentProfile = async (userId, profileData) => {
     const error = new Error("Profile is already locked and cannot be edited");
     error.statusCode = 403;
     throw error;
+  }
+
+  // Check global TPO setting: sem6_required
+  const sem6Setting = await prisma.tpoSetting.findUnique({
+    where: { key: "sem6_required" },
+  });
+  let isSem6Required = false;
+  if (sem6Setting) {
+    try {
+      isSem6Required = typeof sem6Setting.value === "boolean" ? sem6Setting.value : JSON.parse(sem6Setting.value);
+    } catch {
+      isSem6Required = sem6Setting.value === "true";
+    }
+  }
+
+  if (isSem6Required) {
+    const candidateSpis = profileData.spis || profileData.semesterSpis || student.semesterSpis || [];
+    const sem6 = candidateSpis.find(
+      (s) => Number(s.semester) === 6 && s.spi !== undefined && s.spi !== null && s.spi !== "" && Number(s.spi) > 0
+    );
+    if (!sem6) {
+      const error = new Error("Semester 6 SPI is mandatory for profile submission according to current TPO guidelines");
+      error.statusCode = 400;
+      throw error;
+    }
   }
 
   const {

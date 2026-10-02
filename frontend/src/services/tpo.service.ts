@@ -137,6 +137,14 @@ export const tpoService = {
     });
   },
 
+  getSettings: async (): Promise<ApiResponse<Record<string, any>>> => {
+    return apiClient.get<ApiResponse<Record<string, any>>>("/tpo/settings");
+  },
+
+  updateSetting: async (key: string, value: any): Promise<ApiResponse<any>> => {
+    return apiClient.patch<ApiResponse<any>>("/tpo/settings", { key, value });
+  },
+
   // Export functions with automatic browser download
   downloadExport: async (endpoint: string, filename: string): Promise<void> => {
     const token = typeof window !== "undefined" ? useAuthStore.getState().token : null;
