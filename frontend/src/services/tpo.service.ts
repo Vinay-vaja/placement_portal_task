@@ -164,16 +164,30 @@ export const tpoService = {
   downloadExport: async (endpoint: string, filename: string): Promise<void> => {
     const token = typeof window !== "undefined" ? useAuthStore.getState().token : null;
     const baseUrl = env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
-    const fullUrl = `${baseUrl}${endpoint.startsWith("/") ? endpoint : `/${endpoint}`}`;
+    const rawUrl = `${baseUrl}${endpoint.startsWith("/") ? endpoint : `/${endpoint}`}`;
+    
+    // Append token query param as extra fallback for direct streaming
+    const urlObj = new URL(rawUrl, typeof window !== "undefined" ? window.location.origin : "http://localhost:3000");
+    if (token && !urlObj.searchParams.has("token")) {
+      urlObj.searchParams.set("token", token);
+    }
 
-    const res = await fetch(fullUrl, {
+    const res = await fetch(urlObj.toString(), {
       headers: {
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
+      credentials: "include",
     });
 
     if (!res.ok) {
-      throw new Error(`Failed to export data: ${res.statusText}`);
+      let errorMsg = `Failed to export data: ${res.statusText}`;
+      try {
+        const errorJson = await res.json();
+        if (errorJson?.message) errorMsg = errorJson.message;
+      } catch {
+        // use default error message
+      }
+      throw new Error(errorMsg);
     }
 
     const blob = await res.blob();
