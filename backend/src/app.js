@@ -23,10 +23,31 @@ const app = express();
 // ==========================================
 app.use(
   cors({
-    origin: config.clientUrl,
+    origin: (origin, callback) => {
+      // Allow requests with no origin (mobile apps, curl, server-to-server)
+      if (!origin) return callback(null, true);
+
+      // In development or local testing, allow any localhost or 127.0.0.1 origin on any port
+      if (
+        /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin) ||
+        origin === config.clientUrl ||
+        process.env.NODE_ENV !== "production"
+      ) {
+        return callback(null, true);
+      }
+
+      return callback(new Error("Not allowed by CORS"));
+    },
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization",
+      "X-Requested-With",
+      "Accept",
+      "Origin",
+    ],
+    exposedHeaders: ["Content-Disposition"],
   })
 );
 
