@@ -100,7 +100,7 @@ export default function TPODrivesPage() {
       const blobUrl = URL.createObjectURL(blob);
       window.open(blobUrl, "_blank");
     } catch (err: any) {
-      alert(err.message || "Failed to load resume PDF");
+      toast.error(err.message || "Failed to load resume PDF");
     } finally {
       setLoadingResumeId(null);
     }
@@ -286,7 +286,7 @@ export default function TPODrivesPage() {
         )
       );
     } catch (err: unknown) {
-      alert((err as Error)?.message || "Failed to mark attendance");
+      toast.error((err as Error)?.message || "Failed to mark attendance");
     } finally {
       setStatusUpdatingId(null);
     }
@@ -294,6 +294,13 @@ export default function TPODrivesPage() {
 
   useEffect(() => {
     fetchDrives();
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("create") === "true" || params.get("new") === "true") {
+        setModalOpen(true);
+        window.history.replaceState({}, "", window.location.pathname);
+      }
+    }
   }, []);
 
   // Lock background scrolling when any popup/modal is open
@@ -328,21 +335,21 @@ export default function TPODrivesPage() {
     try {
       setIsSubmitting(true);
       if (!formData.companyName.trim()) {
-        alert("Please enter a company name.");
+        toast.error("Please enter a company name.");
         return;
       }
       if (!formData.jobRole.trim()) {
-        alert("Please enter a job role.");
+        toast.error("Please enter a job role.");
         return;
       }
       const minLpaVal = parseFloat(formData.minLpa);
       if (isNaN(minLpaVal) || minLpaVal <= 0) {
-        alert("Please enter a valid Min LPA (e.g. 6.5).");
+        toast.error("Please enter a valid Min LPA (e.g. 6.5).");
         return;
       }
       const maxLpaVal = formData.maxLpa.trim() ? parseFloat(formData.maxLpa) : null;
       if (maxLpaVal !== null && (isNaN(maxLpaVal) || maxLpaVal < minLpaVal)) {
-        alert("Max LPA must be greater than or equal to Min LPA.");
+        toast.error("Max LPA must be greater than or equal to Min LPA.");
         return;
       }
 
@@ -363,6 +370,7 @@ export default function TPODrivesPage() {
         allowedBranches: formData.eligibleBranches,
       });
 
+      toast.success("Recruitment drive created successfully!");
       setModalOpen(false);
       // Reset form
       setFormData({
@@ -385,7 +393,7 @@ export default function TPODrivesPage() {
       if (fileInputRef.current) fileInputRef.current.value = "";
       fetchDrives();
     } catch (err: unknown) {
-      alert((err as Error)?.message || "Failed to create recruitment drive");
+      toast.error((err as Error)?.message || "Failed to create recruitment drive");
     } finally {
       setIsSubmitting(false);
     }

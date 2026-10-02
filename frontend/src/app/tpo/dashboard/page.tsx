@@ -325,7 +325,7 @@ export default function TPODashboardPage() {
           </Button>
 
           {/* Create Drive */}
-          <Link href="/tpo/drives">
+          <Link href="/tpo/drives?create=true">
             <Button variant="primary" size="sm" className="gap-1.5 text-xs font-medium h-9 shadow-sm">
               <PlusCircle className="h-4 w-4" /> New Drive
             </Button>
