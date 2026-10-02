@@ -28,6 +28,9 @@ import {
   Save,
   RotateCcw,
   Info,
+  ChevronLeft,
+  ChevronRight,
+  AlertTriangle,
 } from "lucide-react";
 
 export default function TPOStudentsPage() {
@@ -47,6 +50,16 @@ export default function TPOStudentsPage() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [isExportingCsv, setIsExportingCsv] = useState(false);
   const [isExportingXlsx, setIsExportingXlsx] = useState(false);
+
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalStudents, setTotalStudents] = useState(0);
+  const pageSize = 15;
+
+  // Confirmation Modal State (Dismissal)
+  const [dismissConfirmTarget, setDismissConfirmTarget] = useState<StudentProfile | null>(null);
+  const [confirmDismissReason, setConfirmDismissReason] = useState("");
 
   // TPO Student Profile Edit State
   const [isEditing, setIsEditing] = useState(false);
@@ -85,19 +98,31 @@ export default function TPOStudentsPage() {
     spis: Array.from({ length: 8 }, (_, i) => ({ semester: i + 1, spi: "" })),
   });
 
-  const fetchStudents = async () => {
+  const fetchStudents = async (pageToFetch = currentPage) => {
     try {
       setIsLoading(true);
       setErrorMessage(null);
       const res = await tpoService.getStudents({
+        page: pageToFetch,
+        limit: pageSize,
         search: search || undefined,
         branch: branch !== "ALL" ? branch : undefined,
         verificationStatus: status !== "ALL" ? (status as any) : undefined,
       });
       if (res.data?.data) {
         setStudents(res.data.data);
+        const pagination = (res.data as any).pagination;
+        if (pagination) {
+          setCurrentPage(pagination.page);
+          setTotalPages(pagination.totalPages || 1);
+          setTotalStudents(pagination.total || 0);
+        } else {
+          setTotalStudents(res.data.data.length);
+        }
       } else {
         setStudents([]);
+        setTotalStudents(0);
+        setTotalPages(1);
       }
     } catch (err: unknown) {
       setErrorMessage((err as Error)?.message || "Failed to load student profiles.");
@@ -107,12 +132,21 @@ export default function TPOStudentsPage() {
   };
 
   useEffect(() => {
-    fetchStudents();
+    setCurrentPage(1);
+    fetchStudents(1);
   }, [branch, status]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    fetchStudents();
+    setCurrentPage(1);
+    fetchStudents(1);
+  };
+
+  const handlePageChange = (newPage: number) => {
+    if (newPage >= 1 && newPage <= totalPages && newPage !== currentPage) {
+      setCurrentPage(newPage);
+      fetchStudents(newPage);
+    }
   };
 
   const handleExport = async (format: "csv" | "xlsx") => {
@@ -133,16 +167,27 @@ export default function TPOStudentsPage() {
   };
 
   const handleVerify = async (studentId: string, verifyStatus: "PENDING" | "VERIFIED" | "REJECTED") => {
+    if (verifyStatus === "REJECTED" && !rejectionReason.trim()) {
+      toast.error("Please specify a reason for profile rejection in the remarks field.");
+      return;
+    }
     try {
       setIsProcessing(true);
       await tpoService.verifyStudent(
         studentId,
         verifyStatus,
-        verifyStatus === "REJECTED" ? rejectionReason : undefined
+        verifyStatus === "REJECTED" ? rejectionReason.trim() : undefined
+      );
+      toast.success(
+        verifyStatus === "VERIFIED"
+          ? "Student profile verified and approved!"
+          : verifyStatus === "REJECTED"
+          ? "Student profile marked as rejected."
+          : "Student status updated to pending review."
       );
       setSelectedStudent(null);
       setRejectionReason("");
-      fetchStudents();
+      fetchStudents(currentPage);
     } catch (err: unknown) {
       toast.error((err as Error)?.message || "Failed to update student verification status");
     } finally {
@@ -150,13 +195,24 @@ export default function TPOStudentsPage() {
     }
   };
 
-  const handleDismiss = async (studentId: string) => {
+  const handleOpenDismissModal = (student: StudentProfile) => {
+    setDismissConfirmTarget(student);
+    setConfirmDismissReason(dismissReason || "Disciplinary dismissal / document discrepancy");
+  };
+
+  const handleConfirmDismiss = async () => {
+    if (!dismissConfirmTarget) return;
     try {
       setIsProcessing(true);
-      await tpoService.dismissStudent(studentId, dismissReason || "Dismissed by Central TPO");
+      await tpoService.dismissStudent(
+        dismissConfirmTarget.id,
+        confirmDismissReason.trim() || "Dismissed by Central TPO"
+      );
+      toast.success(`Student ${dismissConfirmTarget.fullName} has been dismissed from placement.`);
+      setDismissConfirmTarget(null);
       setSelectedStudent(null);
       setDismissReason("");
-      fetchStudents();
+      fetchStudents(currentPage);
     } catch (err: unknown) {
       toast.error((err as Error)?.message || "Failed to dismiss student");
     } finally {
@@ -168,8 +224,9 @@ export default function TPOStudentsPage() {
     try {
       setIsProcessing(true);
       await tpoService.reinstateStudent(studentId);
+      toast.success("Student has been reinstated and is now eligible for placements.");
       setSelectedStudent(null);
-      fetchStudents();
+      fetchStudents(currentPage);
     } catch (err: unknown) {
       toast.error((err as Error)?.message || "Failed to reinstate student");
     } finally {
@@ -291,7 +348,7 @@ export default function TPOStudentsPage() {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Badge className="bg-[#0071E3]/10 text-[#0071E3] border border-[#0071E3]/20 font-medium px-3 py-1.5 rounded-full text-xs">
-            {students.length} Registered
+            {totalStudents} Registered
           </Badge>
           <Button
             variant="outline"
@@ -449,6 +506,64 @@ export default function TPOStudentsPage() {
                   ))}
                 </tbody>
               </table>
+            </div>
+          )}
+
+          {/* Table Pagination Controls */}
+          {!isLoading && students.length > 0 && totalPages > 1 && (
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3.5 border-t border-black/[0.06] bg-[#F5F5F7]/40 text-xs">
+              <span className="text-[#86868B]">
+                Showing <strong className="font-semibold text-[#1D1D1F]">{(currentPage - 1) * pageSize + 1}</strong> to{" "}
+                <strong className="font-semibold text-[#1D1D1F]">
+                  {Math.min(currentPage * pageSize, totalStudents)}
+                </strong>{" "}
+                of <strong className="font-semibold text-[#1D1D1F]">{totalStudents}</strong> students
+              </span>
+
+              <div className="flex items-center gap-1.5">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handlePageChange(currentPage - 1)}
+                  disabled={currentPage <= 1 || isLoading}
+                  className="h-8 px-2.5 text-xs gap-1 border-black/[0.1] hover:bg-neutral-100 disabled:opacity-40"
+                >
+                  <ChevronLeft className="h-3.5 w-3.5" /> Previous
+                </Button>
+
+                <div className="flex items-center gap-1 mx-1">
+                  {Array.from({ length: totalPages }, (_, i) => i + 1)
+                    .filter((p) => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 1)
+                    .map((p, idx, arr) => (
+                      <React.Fragment key={p}>
+                        {idx > 0 && arr[idx - 1] !== p - 1 && (
+                          <span className="px-1 text-gray-400">...</span>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => handlePageChange(p)}
+                          className={`h-8 min-w-[32px] px-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+                            p === currentPage
+                              ? "bg-[#0071E3] text-white shadow-xs"
+                              : "text-[#1D1D1F] hover:bg-black/[0.05]"
+                          }`}
+                        >
+                          {p}
+                        </button>
+                      </React.Fragment>
+                    ))}
+                </div>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handlePageChange(currentPage + 1)}
+                  disabled={currentPage >= totalPages || isLoading}
+                  className="h-8 px-2.5 text-xs gap-1 border-black/[0.1] hover:bg-neutral-100 disabled:opacity-40"
+                >
+                  Next <ChevronRight className="h-3.5 w-3.5" />
+                </Button>
+              </div>
             </div>
           )}
         </CardContent>
@@ -687,7 +802,7 @@ export default function TPOStudentsPage() {
                           type="button"
                           variant="outline"
                           size="sm"
-                          onClick={() => handleDismiss(selectedStudent.id)}
+                          onClick={() => handleOpenDismissModal(selectedStudent)}
                           disabled={isProcessing}
                           className="text-xs font-medium text-[#FF3B30] border-red-300 hover:bg-red-50"
                         >
@@ -1118,6 +1233,63 @@ export default function TPOStudentsPage() {
                 </form>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Dismiss Student Confirmation Modal */}
+      {dismissConfirmTarget && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-150">
+          <div className="w-full max-w-md rounded-2xl bg-white border border-black/[0.1] p-6 shadow-2xl space-y-4">
+            <div className="flex items-start gap-3">
+              <div className="p-2.5 rounded-xl bg-red-50 text-red-600 border border-red-100 shrink-0">
+                <AlertTriangle className="h-5 w-5" />
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-base font-semibold text-[#1D1D1F]">
+                  Dismiss Student from Placement?
+                </h3>
+                <p className="text-xs text-[#86868B] leading-relaxed">
+                  Are you sure you want to dismiss <strong className="font-semibold text-[#1D1D1F]">{dismissConfirmTarget.fullName}</strong>?
+                  This action will immediately debar the student from participating in all campus placement drives.
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-1.5 pt-1">
+              <label className="text-[11px] font-medium text-[#86868B] block">
+                Reason for Dismissal *
+              </label>
+              <textarea
+                value={confirmDismissReason}
+                onChange={(e) => setConfirmDismissReason(e.target.value)}
+                placeholder="e.g. Disciplinary violation, falsified marksheet, or unauthorized drive absence..."
+                rows={3}
+                className="w-full text-xs rounded-xl border border-black/[0.1] bg-[#F5F5F7] p-3 focus:bg-white focus:border-[#FF3B30] focus:outline-none transition-all"
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setDismissConfirmTarget(null)}
+                disabled={isProcessing}
+                className="text-xs border-black/[0.1] hover:bg-neutral-100"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                onClick={handleConfirmDismiss}
+                disabled={isProcessing || !confirmDismissReason.trim()}
+                className="text-xs font-semibold bg-[#FF3B30] hover:bg-[#D70015] text-white gap-1.5 shadow-sm"
+              >
+                {isProcessing ? "Dismissing..." : "Confirm Dismissal"}
+              </Button>
+            </div>
           </div>
         </div>
       )}

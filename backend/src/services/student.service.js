@@ -525,6 +525,37 @@ export const getAllStudents = async (filters = {}, pagination = {}) => {
     ];
   }
 
+  // When minCpi or minCgpa filter is requested, we must compute metrics across
+  // all candidate records to calculate the true matching total and correct page slice.
+  const hasCpiFilter = Boolean(filters.minCpi || filters.minCgpa);
+
+  if (hasCpiFilter) {
+    const allStudents = await prisma.student.findMany({
+      where,
+      select: safeStudentSelect,
+      orderBy: pagination.orderBy || { createdAt: "desc" },
+    });
+
+    let filtered = allStudents.map(enrichWithComputedFields);
+
+    if (filters.minCpi) {
+      const minCpi = parseFloat(filters.minCpi);
+      filtered = filtered.filter((s) => s.cpi !== null && s.cpi >= minCpi);
+    }
+    if (filters.minCgpa) {
+      const minCgpa = parseFloat(filters.minCgpa);
+      filtered = filtered.filter((s) => s.cgpa !== null && s.cgpa >= minCgpa);
+    }
+
+    const total = filtered.length;
+    const skip = pagination.skip || 0;
+    const take = pagination.take || 20;
+    const paginatedStudents = filtered.slice(skip, skip + take);
+
+    return { students: paginatedStudents, total };
+  }
+
+  // Standard database-level pagination when no computed CPI/CGPA filter is used
   const [students, total] = await Promise.all([
     prisma.student.findMany({
       where,
@@ -536,19 +567,7 @@ export const getAllStudents = async (filters = {}, pagination = {}) => {
     prisma.student.count({ where }),
   ]);
 
-  // Enrich with computed CPI/CGPA and apply CPI/CGPA filters post-query
-  let enriched = students.map(enrichWithComputedFields);
-
-  // Post-query CPI/CGPA filtering (these are computed fields not in DB)
-  if (filters.minCpi) {
-    const minCpi = parseFloat(filters.minCpi);
-    enriched = enriched.filter((s) => s.cpi !== null && s.cpi >= minCpi);
-  }
-  if (filters.minCgpa) {
-    const minCgpa = parseFloat(filters.minCgpa);
-    enriched = enriched.filter((s) => s.cgpa !== null && s.cgpa >= minCgpa);
-  }
-
+  const enriched = students.map(enrichWithComputedFields);
   return { students: enriched, total };
 };
 

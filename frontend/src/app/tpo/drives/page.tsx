@@ -31,6 +31,8 @@ import {
   ImageIcon,
   Loader2,
   Upload,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 
 import { ENGINEERING_BRANCHES, BranchCode } from "@/config/constants";
@@ -90,7 +92,7 @@ export default function TPODrivesPage() {
       const blobUrl = URL.createObjectURL(blob);
       window.open(blobUrl, "_blank");
     } catch (err: any) {
-      toast.error(err.message || "Failed to load resume PDF");
+      alert(err.message || "Failed to load resume PDF");
     } finally {
       setLoadingResumeId(null);
     }
@@ -151,19 +153,44 @@ export default function TPODrivesPage() {
     }
   };
 
-  const fetchDrives = async () => {
+  const [currentDrivePage, setCurrentDrivePage] = useState(1);
+  const [totalDrivePages, setTotalDrivePages] = useState(1);
+  const [totalDrives, setTotalDrives] = useState(0);
+  const drivePageSize = 9;
+
+  const fetchDrives = async (pageToFetch = currentDrivePage) => {
     try {
       setIsLoading(true);
-      const res = await driveService.getDrives();
+      const res = await driveService.getDrives({
+        page: pageToFetch,
+        limit: drivePageSize,
+      });
       if (res.data?.data) {
         setDrives(res.data.data);
+        const pagination = (res.data as any).pagination;
+        if (pagination) {
+          setCurrentDrivePage(pagination.page);
+          setTotalDrivePages(pagination.totalPages || 1);
+          setTotalDrives(pagination.total || 0);
+        } else {
+          setTotalDrives(res.data.data.length);
+        }
       } else {
         setDrives([]);
+        setTotalDrives(0);
+        setTotalDrivePages(1);
       }
     } catch (err: unknown) {
       setErrorMessage((err as Error)?.message || "Failed to fetch recruitment drives");
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleDrivePageChange = (newPage: number) => {
+    if (newPage >= 1 && newPage <= totalDrivePages && newPage !== currentDrivePage) {
+      setCurrentDrivePage(newPage);
+      fetchDrives(newPage);
     }
   };
 
@@ -202,7 +229,7 @@ export default function TPODrivesPage() {
         setDriveApplicants([]);
       }
     } catch (err: unknown) {
-      toast.error((err as Error)?.message || "Failed to load drive applicants");
+      alert((err as Error)?.message || "Failed to load drive applicants");
     } finally {
       setLoadingApplicants(false);
     }
@@ -220,7 +247,7 @@ export default function TPODrivesPage() {
         prev.map((app) => (app.id === applicationId ? { ...app, status } : app))
       );
     } catch (err: unknown) {
-      toast.error((err as Error)?.message || "Failed to update application status");
+      alert((err as Error)?.message || "Failed to update application status");
     } finally {
       setStatusUpdatingId(null);
     }
@@ -238,7 +265,7 @@ export default function TPODrivesPage() {
         )
       );
     } catch (err: unknown) {
-      toast.error((err as Error)?.message || "Failed to mark attendance");
+      alert((err as Error)?.message || "Failed to mark attendance");
     } finally {
       setStatusUpdatingId(null);
     }
@@ -280,21 +307,21 @@ export default function TPODrivesPage() {
     try {
       setIsSubmitting(true);
       if (!formData.companyName.trim()) {
-        toast.error("Please enter a company name.");
+        alert("Please enter a company name.");
         return;
       }
       if (!formData.jobRole.trim()) {
-        toast.error("Please enter a job role.");
+        alert("Please enter a job role.");
         return;
       }
       const minLpaVal = parseFloat(formData.minLpa);
       if (isNaN(minLpaVal) || minLpaVal <= 0) {
-        toast.error("Please enter a valid Min LPA (e.g. 6.5).");
+        alert("Please enter a valid Min LPA (e.g. 6.5).");
         return;
       }
       const maxLpaVal = formData.maxLpa.trim() ? parseFloat(formData.maxLpa) : null;
       if (maxLpaVal !== null && (isNaN(maxLpaVal) || maxLpaVal < minLpaVal)) {
-        toast.error("Max LPA must be greater than or equal to Min LPA.");
+        alert("Max LPA must be greater than or equal to Min LPA.");
         return;
       }
 
@@ -337,7 +364,7 @@ export default function TPODrivesPage() {
       if (fileInputRef.current) fileInputRef.current.value = "";
       fetchDrives();
     } catch (err: unknown) {
-      toast.error((err as Error)?.message || "Failed to create recruitment drive");
+      alert((err as Error)?.message || "Failed to create recruitment drive");
     } finally {
       setIsSubmitting(false);
     }
@@ -399,13 +426,13 @@ export default function TPODrivesPage() {
             const ctcDisplay = drive.ctcMax
               ? `₹${drive.ctc} - ${drive.ctcMax} LPA`
               : drive.ctc
-              ? `₹${drive.ctc} LPA`
-              : (drive as any).ctcPackage || "Confidential";
+                ? `₹${drive.ctc} LPA`
+                : (drive as any).ctcPackage || "Confidential";
             const deadlineDisplay = drive.applicationDeadline
               ? new Date(drive.applicationDeadline).toLocaleDateString()
               : drive.deadline
-              ? new Date(drive.deadline).toLocaleDateString()
-              : "Open";
+                ? new Date(drive.deadline).toLocaleDateString()
+                : "Open";
             const branchesList = drive.allowedBranches || (drive as any).eligibleBranches || [];
             const companyLogo = drive.company?.imageUrl || (drive as any).companyLogo;
             const brochureMatch = (drive.description || "").match(/Brochure:\s*(https?:\/\/[^\s]+)/i);
@@ -532,6 +559,64 @@ export default function TPODrivesPage() {
               </Card>
             );
           })}
+        </div>
+      )}
+
+      {/* Drives Pagination Bar */}
+      {!isLoading && drives.length > 0 && totalDrivePages > 1 && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-6 py-4 rounded-2xl bg-white border border-slate-200 text-xs shadow-xs">
+          <span className="text-slate-500">
+            Showing <strong className="font-semibold text-slate-900">{(currentDrivePage - 1) * drivePageSize + 1}</strong> to{" "}
+            <strong className="font-semibold text-slate-900">
+              {Math.min(currentDrivePage * drivePageSize, totalDrives)}
+            </strong>{" "}
+            of <strong className="font-semibold text-slate-900">{totalDrives}</strong> recruitment drives
+          </span>
+
+          <div className="flex items-center gap-1.5">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleDrivePageChange(currentDrivePage - 1)}
+              disabled={currentDrivePage <= 1 || isLoading}
+              className="h-8 px-2.5 text-xs gap-1 border-slate-200 hover:bg-slate-50 disabled:opacity-40"
+            >
+              <ChevronLeft className="h-3.5 w-3.5" /> Previous
+            </Button>
+
+            <div className="flex items-center gap-1 mx-1">
+              {Array.from({ length: totalDrivePages }, (_, i) => i + 1)
+                .filter((p) => p === 1 || p === totalDrivePages || Math.abs(p - currentDrivePage) <= 1)
+                .map((p, idx, arr) => (
+                  <React.Fragment key={p}>
+                    {idx > 0 && arr[idx - 1] !== p - 1 && (
+                      <span className="px-1 text-slate-400">...</span>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => handleDrivePageChange(p)}
+                      className={`h-8 min-w-[32px] px-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+                        p === currentDrivePage
+                          ? "bg-blue-600 text-white shadow-xs"
+                          : "text-slate-700 hover:bg-slate-100"
+                      }`}
+                    >
+                      {p}
+                    </button>
+                  </React.Fragment>
+                ))}
+            </div>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleDrivePageChange(currentDrivePage + 1)}
+              disabled={currentDrivePage >= totalDrivePages || isLoading}
+              className="h-8 px-2.5 text-xs gap-1 border-slate-200 hover:bg-slate-50 disabled:opacity-40"
+            >
+              Next <ChevronRight className="h-3.5 w-3.5" />
+            </Button>
+          </div>
         </div>
       )}
 
@@ -840,11 +925,10 @@ export default function TPODrivesPage() {
                         type="button"
                         key={b}
                         onClick={() => handleBranchToggle(b)}
-                        className={`px-2.5 py-1 rounded-lg border text-[11px] font-semibold transition-all ${
-                          isSelected
-                            ? "bg-blue-600 text-white border-blue-600 shadow-xs"
-                            : "bg-white text-slate-700 border-slate-200 hover:bg-slate-100"
-                        }`}
+                        className={`px-2.5 py-1 rounded-lg border text-[11px] font-semibold transition-all ${isSelected
+                          ? "bg-blue-600 text-white border-blue-600 shadow-xs"
+                          : "bg-white text-slate-700 border-slate-200 hover:bg-slate-100"
+                          }`}
                       >
                         {b}
                       </button>
@@ -993,11 +1077,10 @@ export default function TPODrivesPage() {
                                 type="button"
                                 onClick={() => handleMarkAttendance(app.id, true)}
                                 disabled={statusUpdatingId === app.id}
-                                className={`px-2 py-0.5 rounded text-[10px] font-semibold transition-colors ${
-                                  app.attendanceMarked && app.isPresent
-                                    ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
-                                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                                }`}
+                                className={`px-2 py-0.5 rounded text-[10px] font-semibold transition-colors ${app.attendanceMarked && app.isPresent
+                                  ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
+                                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                                  }`}
                               >
                                 Present
                               </button>
@@ -1005,11 +1088,10 @@ export default function TPODrivesPage() {
                                 type="button"
                                 onClick={() => handleMarkAttendance(app.id, false)}
                                 disabled={statusUpdatingId === app.id}
-                                className={`px-2 py-0.5 rounded text-[10px] font-semibold transition-colors ${
-                                  app.attendanceMarked && !app.isPresent
-                                    ? "bg-rose-100 text-rose-800 border border-rose-300"
-                                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                                }`}
+                                className={`px-2 py-0.5 rounded text-[10px] font-semibold transition-colors ${app.attendanceMarked && !app.isPresent
+                                  ? "bg-rose-100 text-rose-800 border border-rose-300"
+                                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                                  }`}
                               >
                                 Absent
                               </button>
