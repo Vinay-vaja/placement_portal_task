@@ -27,16 +27,29 @@ app.use(
       // Allow requests with no origin (mobile apps, curl, server-to-server)
       if (!origin) return callback(null, true);
 
-      // In development or local testing, allow any localhost or 127.0.0.1 origin on any port
-      if (
-        /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin) ||
-        origin === config.clientUrl ||
-        process.env.NODE_ENV !== "production"
-      ) {
-        return callback(null, true);
+      try {
+        const cleanOrigin = origin.replace(/\/$/, "");
+        const hostname = new URL(cleanOrigin).hostname;
+        const allowedOrigins = (config.clientUrl || "")
+          .split(",")
+          .map((u) => u.trim().replace(/\/$/, ""))
+          .filter(Boolean);
+
+        // Allow localhost, any Vercel domain, or explicitly configured clientUrl
+        if (
+          /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(cleanOrigin) ||
+          hostname.endsWith(".vercel.app") ||
+          allowedOrigins.includes(cleanOrigin) ||
+          allowedOrigins.includes("*") ||
+          process.env.NODE_ENV !== "production"
+        ) {
+          return callback(null, true);
+        }
+      } catch (err) {
+        // Fallback for unparseable URLs
       }
 
-      return callback(new Error("Not allowed by CORS"));
+      return callback(new Error(`Origin ${origin} not allowed by CORS`));
     },
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
