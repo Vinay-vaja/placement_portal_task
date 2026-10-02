@@ -277,3 +277,110 @@ export const exportDriveApplicants = async (driveId, format = "csv") => {
   }
   return workbook.xlsx.writeBuffer();
 };
+
+/**
+ * Export company-wise student placements/applications as CSV or XLSX
+ * @param {Object} query - { companyId?: string, format?: 'csv' | 'xlsx' }
+ * @param {string} format - "csv" or "xlsx"
+ * @returns {Buffer} file buffer
+ */
+export const exportCompanyWiseStudents = async (query = {}, format = "xlsx") => {
+  const where = {
+    status: "SELECTED",
+  };
+
+  if (query.companyId && query.companyId !== "ALL") {
+    where.drive = { companyId: query.companyId };
+  }
+
+  const applications = await prisma.application.findMany({
+    where,
+    include: {
+      drive: {
+        include: {
+          company: { select: { id: true, name: true } },
+        },
+      },
+      student: {
+        include: {
+          user: { select: { email: true } },
+          semesterSpis: { orderBy: { semester: "asc" } },
+        },
+      },
+    },
+    orderBy: [
+      { drive: { company: { name: "asc" } } },
+      { appliedAt: "desc" },
+    ],
+  });
+
+  const workbook = new ExcelJS.Workbook();
+  workbook.creator = "LDCE Central Placement Cell";
+  workbook.created = new Date();
+
+  const sheet = workbook.addWorksheet("Company Selections");
+
+  sheet.columns = [
+    { header: "Company Name", key: "companyName", width: 25 },
+    { header: "Job Role", key: "role", width: 22 },
+    { header: "Package (LPA)", key: "package", width: 15 },
+    { header: "Student Name", key: "studentName", width: 25 },
+    { header: "Student Email", key: "email", width: 30 },
+    { header: "Phone Number", key: "phone", width: 16 },
+    { header: "Branch", key: "branch", width: 14 },
+    { header: "Student Type", key: "studentType", width: 12 },
+    { header: "10th %", key: "tenthPercentage", width: 10 },
+    { header: "12th %", key: "twelfthPercentage", width: 10 },
+    { header: "D2D CGPA", key: "d2dCgpa", width: 12 },
+    { header: "CPI", key: "cpi", width: 10 },
+    { header: "CGPA", key: "cgpa", width: 10 },
+    { header: "Selection Status", key: "status", width: 16 },
+    { header: "Selection Date", key: "offerDate", width: 16 },
+  ];
+
+  // Professional header styling
+  const headerRow = sheet.getRow(1);
+  headerRow.height = 26;
+  headerRow.font = { bold: true, color: { argb: "FFFFFFFF" }, size: 11 };
+  headerRow.fill = {
+    type: "pattern",
+    pattern: "solid",
+    fgColor: { argb: "FF0071E3" },
+  };
+  headerRow.alignment = { vertical: "middle", horizontal: "center" };
+
+  applications.forEach((app) => {
+    const student = app.student;
+    const drive = app.drive;
+    const company = drive?.company;
+    const cpi = calculateCpi(student.semesterSpis);
+    const cgpa = calculateCgpa(student.semesterSpis);
+
+    const offerPkg =
+      student.currentPackageLpa ??
+      (drive.ctcMax ? `${drive.ctc} - ${drive.ctcMax}` : drive.ctc);
+
+    sheet.addRow({
+      companyName: company?.name || "N/A",
+      role: drive?.role || "Engineering Role",
+      package: offerPkg,
+      studentName: student.fullName,
+      email: student.user?.email || "",
+      phone: student.phone,
+      branch: student.branch || "",
+      studentType: student.studentType,
+      tenthPercentage: student.tenthPercentage ?? "",
+      twelfthPercentage: student.twelfthPercentage ?? "",
+      d2dCgpa: student.d2dCgpa ?? "",
+      cpi: cpi ?? "",
+      cgpa: cgpa ?? "",
+      status: app.status,
+      offerDate: new Date(app.updatedAt || app.appliedAt).toLocaleDateString("en-IN"),
+    });
+  });
+
+  if (format === "csv") {
+    return workbook.csv.writeBuffer();
+  }
+  return workbook.xlsx.writeBuffer();
+};

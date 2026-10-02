@@ -304,6 +304,33 @@ export const exportDriveApplicants = async (req, res, next) => {
   }
 };
 
+/**
+ * GET /api/tpo/export/company-wise
+ * Export company-wise student placements as CSV or XLSX
+ */
+export const exportCompanyWiseStudents = async (req, res, next) => {
+  try {
+    const format = req.query.format === "csv" ? "csv" : "xlsx";
+    const buffer = await exportService.exportCompanyWiseStudents(
+      req.query,
+      format
+    );
+
+    const filename = `company_wise_students_${new Date().toISOString().split("T")[0]}.${format}`;
+
+    const contentType =
+      format === "xlsx"
+        ? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        : "text/csv";
+
+    res.setHeader("Content-Type", contentType);
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    return res.send(Buffer.from(buffer));
+  } catch (error) {
+    next(error);
+  }
+};
+
 // ============================
 // TPO Settings
 // ============================

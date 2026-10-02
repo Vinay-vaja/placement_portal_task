@@ -212,6 +212,22 @@ export const tpoService = {
     );
   },
 
+  exportCompanyWiseStudents: async (
+    format: "csv" | "xlsx" = "xlsx",
+    params?: { companyId?: string }
+  ): Promise<void> => {
+    const dateStr = new Date().toISOString().split("T")[0];
+    const queryParams = new URLSearchParams();
+    queryParams.set("format", format);
+    if (params?.companyId && params.companyId !== "ALL") {
+      queryParams.set("companyId", params.companyId);
+    }
+    await tpoService.downloadExport(
+      `/tpo/export/company-wise?${queryParams.toString()}`,
+      `ldce_company_wise_selections_${dateStr}.${format}`
+    );
+  },
+
   exportStudentsUrl: (format: "csv" | "xlsx" = "csv") => {
     const token = typeof window !== "undefined" ? useAuthStore.getState().token : "";
     return `/api/tpo/students/export?format=${format}${token ? `&token=${token}` : ""}`;

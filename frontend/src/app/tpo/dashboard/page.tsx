@@ -41,6 +41,7 @@ export default function TPODashboardPage() {
   // Export states
   const [isExportingCsv, setIsExportingCsv] = useState(false);
   const [isExportingXlsx, setIsExportingXlsx] = useState(false);
+  const [isExportingCompanyXlsx, setIsExportingCompanyXlsx] = useState(false);
 
   // Email Announcement Modal State
   const [announcementModalOpen, setAnnouncementModalOpen] = useState(false);
@@ -160,6 +161,22 @@ export default function TPODashboardPage() {
     } finally {
       if (format === "csv") setIsExportingCsv(false);
       else setIsExportingXlsx(false);
+    }
+  };
+
+  const handleExportCompanyWise = async (companyId?: string) => {
+    try {
+      setIsExportingCompanyXlsx(true);
+      await tpoService.exportCompanyWiseStudents("xlsx", companyId ? { companyId } : undefined);
+      toast.success(
+        companyId
+          ? "Company student selections exported successfully!"
+          : "Company-wise student placements exported successfully!"
+      );
+    } catch (err: unknown) {
+      toast.error((err as Error)?.message || "Failed to export company-wise students");
+    } finally {
+      setIsExportingCompanyXlsx(false);
     }
   };
 
@@ -293,6 +310,18 @@ export default function TPODashboardPage() {
           >
             <FileSpreadsheet className="h-4 w-4 text-[#0071E3]" />
             {isExportingXlsx ? "Exporting..." : "Export Excel"}
+          </Button>
+
+          {/* Company-wise Selections Excel */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handleExportCompanyWise()}
+            disabled={isExportingCompanyXlsx}
+            className="gap-1.5 text-xs font-medium h-9 border-black/[0.12] hover:bg-neutral-50"
+          >
+            <Building2 className="h-4 w-4 text-[#5856D6]" />
+            {isExportingCompanyXlsx ? "Exporting..." : "Company Selections Excel"}
           </Button>
 
           {/* Create Drive */}
@@ -452,12 +481,27 @@ export default function TPODashboardPage() {
         {/* Company-wise Hiring Ranking */}
         <Card className="rounded-3xl border border-black/[0.08] bg-white shadow-[0_2px_16px_rgba(0,0,0,0.03)] overflow-hidden">
           <CardHeader className="border-b border-black/[0.06] pb-4">
-            <CardTitle className="text-base font-semibold text-[#1D1D1F] flex items-center gap-2">
-              <Building2 className="h-4 w-4 text-[#0071E3]" /> Company Hiring & CTC Rankings
-            </CardTitle>
-            <CardDescription className="text-xs text-[#86868B]">
-              Number of recruits and average package offered per corporate partner
-            </CardDescription>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+              <div>
+                <CardTitle className="text-base font-semibold text-[#1D1D1F] flex items-center gap-2">
+                  <Building2 className="h-4 w-4 text-[#0071E3]" /> Company Hiring & CTC Rankings
+                </CardTitle>
+                <CardDescription className="text-xs text-[#86868B]">
+                  Number of recruits and average package offered per corporate partner
+                </CardDescription>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleExportCompanyWise()}
+                disabled={isExportingCompanyXlsx}
+                className="gap-1.5 text-xs font-medium h-8 border-black/[0.12] hover:bg-neutral-50 shrink-0 self-start sm:self-auto"
+                title="Export all company student placements to Excel"
+              >
+                <FileSpreadsheet className="h-3.5 w-3.5 text-[#5856D6]" />
+                {isExportingCompanyXlsx ? "Exporting..." : "Export Excel"}
+              </Button>
+            </div>
           </CardHeader>
           <CardContent className="p-0">
             {companyWise.length === 0 ? (
@@ -477,11 +521,23 @@ export default function TPODashboardPage() {
                         <p className="text-[11px] text-[#86868B]">{comp.studentsHired} Students Selected</p>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <span className="text-xs sm:text-sm font-bold text-[#0071E3]">
-                        ₹{comp.avgPackage.toFixed(2)} LPA
-                      </span>
-                      <span className="block text-[10px] text-[#86868B]">Avg Package</span>
+                    <div className="flex items-center gap-3">
+                      <div className="text-right">
+                        <span className="text-xs sm:text-sm font-bold text-[#0071E3]">
+                          ₹{comp.avgPackage.toFixed(2)} LPA
+                        </span>
+                        <span className="block text-[10px] text-[#86868B]">Avg Package</span>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleExportCompanyWise(comp.companyId)}
+                        disabled={isExportingCompanyXlsx}
+                        title={`Download Excel for ${comp.company}`}
+                        className="h-8 w-8 p-0 rounded-full hover:bg-neutral-100 text-[#86868B] hover:text-[#0071E3]"
+                      >
+                        <Download className="h-3.5 w-3.5" />
+                      </Button>
                     </div>
                   </div>
                 ))}
@@ -604,6 +660,25 @@ export default function TPODashboardPage() {
                 </p>
               </div>
             </button>
+
+            <button
+              onClick={() => handleExportCompanyWise()}
+              disabled={isExportingCompanyXlsx}
+              className="flex items-start text-left gap-3.5 p-4 rounded-2xl border border-black/[0.06] bg-[#F5F5F7]/40 hover:bg-white hover:border-black/[0.12] hover:shadow-sm transition-all group"
+            >
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#5856D6] text-white">
+                <Building2 className="h-4.5 w-4.5" />
+              </div>
+              <div className="space-y-0.5">
+                <h4 className="text-xs sm:text-sm font-semibold text-[#1D1D1F] group-hover:text-[#5856D6] transition-colors">
+                  Company Selections Excel
+                </h4>
+                <p className="text-xs text-[#86868B] leading-snug">
+                  Download company-wise student hire rosters with CTCs, branch, and contact details.
+                </p>
+              </div>
+            </button>
+
 
             <button
               onClick={() => setAnnouncementModalOpen(true)}

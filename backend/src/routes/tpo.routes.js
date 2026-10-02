@@ -23,6 +23,10 @@ router.get("/dashboard", tpoController.getDashboard);
 // IMPORTANT: This must be BEFORE the /students/:id route
 router.get("/students/export", tpoController.exportStudents);
 
+// GET /api/tpo/export/company-wise - export company-wise student placements
+router.get("/export/company-wise", tpoController.exportCompanyWiseStudents);
+router.get("/companies/export", tpoController.exportCompanyWiseStudents);
+
 // GET /api/tpo/students - get all students (paginated + filters)
 router.get("/students", tpoController.getAllStudents);
 
