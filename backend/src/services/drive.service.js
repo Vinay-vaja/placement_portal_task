@@ -3,6 +3,22 @@ import { parsePagination, buildPaginatedResponse } from "../utils/pagination.js"
 import { checkStudentEligibility } from "./eligibility.service.js";
 
 /**
+ * Normalize a deadline date string to end-of-day (23:59:59.999).
+ * Date-only inputs like "2026-10-15" default to midnight start (00:00:00),
+ * which means the drive effectively closes at the START of the deadline day.
+ * This ensures the drive remains open for the entire deadline day.
+ */
+function normalizeDeadlineToEndOfDay(dateInput) {
+  const d = new Date(dateInput);
+  if (isNaN(d.getTime())) return null;
+  // If it looks like a date-only string (no time component), set to end-of-day
+  if (typeof dateInput === "string" && /^\d{4}-\d{2}-\d{2}$/.test(dateInput.trim())) {
+    d.setUTCHours(23, 59, 59, 999);
+  }
+  return d;
+}
+
+/**
  * Create a new recruitment drive (TPO only)
  */
 export const createDrive = async (data) => {
@@ -106,7 +122,7 @@ export const createDrive = async (data) => {
       allowedStudentType: allowedStudentType || "ALL",
       allowedBranches: finalBranches,
       backlogsAllowed: backlogsAllowed ?? false,
-      applicationDeadline: finalDeadline ? new Date(finalDeadline) : null,
+      applicationDeadline: finalDeadline ? normalizeDeadlineToEndOfDay(finalDeadline) : null,
       status: status || "ACTIVE",
       maxSelectionsPerStudent: maxSelectionsPerStudent ? Number(maxSelectionsPerStudent) : 1,
       tpoAllowMultiple: tpoAllowMultiple ?? false,

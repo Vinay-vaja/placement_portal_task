@@ -32,6 +32,17 @@ export const checkStudentEligibility = (student, drive) => {
     reasons.push("You have been dismissed from the placement process");
   }
 
+  // 2b. Student must have VERIFIED status (block REJECTED and PENDING)
+  if (student.verificationStatus === "REJECTED") {
+    reasons.push(
+      "Your profile has been rejected by the TPO. Please update your profile and resubmit for verification."
+    );
+  } else if (student.verificationStatus === "PENDING") {
+    reasons.push(
+      "Your profile is pending verification by the TPO. You can apply once verified."
+    );
+  }
+
   // 3. Student type check
   if (
     drive.allowedStudentType !== "ALL" &&
@@ -142,6 +153,7 @@ export const getEligibleStudents = async (drive, filters = {}) => {
   const where = {
     profileLocked: true, // only submitted profiles
     isDismissed: false, // exclude dismissed students
+    verificationStatus: "VERIFIED", // only verified students can be eligible
   };
 
   if (filters.verificationStatus) {

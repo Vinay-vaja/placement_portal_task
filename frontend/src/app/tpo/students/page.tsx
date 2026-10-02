@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import toast from "react-hot-toast";
 import { tpoService } from "@/services/tpo.service";
 import { StudentProfile } from "@/types";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -124,7 +125,7 @@ export default function TPOStudentsPage() {
         verificationStatus: status !== "ALL" ? status : undefined,
       });
     } catch (err: unknown) {
-      alert((err as Error)?.message || `Failed to export ${format.toUpperCase()}`);
+      toast.error((err as Error)?.message || `Failed to export ${format.toUpperCase()}`);
     } finally {
       if (format === "csv") setIsExportingCsv(false);
       else setIsExportingXlsx(false);
@@ -143,7 +144,7 @@ export default function TPOStudentsPage() {
       setRejectionReason("");
       fetchStudents();
     } catch (err: unknown) {
-      alert((err as Error)?.message || "Failed to update student verification status");
+      toast.error((err as Error)?.message || "Failed to update student verification status");
     } finally {
       setIsProcessing(false);
     }
@@ -157,7 +158,7 @@ export default function TPOStudentsPage() {
       setDismissReason("");
       fetchStudents();
     } catch (err: unknown) {
-      alert((err as Error)?.message || "Failed to dismiss student");
+      toast.error((err as Error)?.message || "Failed to dismiss student");
     } finally {
       setIsProcessing(false);
     }
@@ -170,7 +171,7 @@ export default function TPOStudentsPage() {
       setSelectedStudent(null);
       fetchStudents();
     } catch (err: unknown) {
-      alert((err as Error)?.message || "Failed to reinstate student");
+      toast.error((err as Error)?.message || "Failed to reinstate student");
     } finally {
       setIsProcessing(false);
     }

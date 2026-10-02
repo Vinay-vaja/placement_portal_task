@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import toast from "react-hot-toast";
 import { driveService } from "@/services/drive.service";
 import { RecruitmentDrive } from "@/types";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -89,7 +90,7 @@ export default function TPODrivesPage() {
       const blobUrl = URL.createObjectURL(blob);
       window.open(blobUrl, "_blank");
     } catch (err: any) {
-      alert(err.message || "Failed to load resume PDF");
+      toast.error(err.message || "Failed to load resume PDF");
     } finally {
       setLoadingResumeId(null);
     }
@@ -170,9 +171,9 @@ export default function TPODrivesPage() {
     try {
       setNotifyingDriveId(driveId);
       const res = await tpoService.notifyDriveApplicants(driveId);
-      alert(res.data?.message || "Eligible students have been notified via email!");
+      toast.success(res.data?.message || "Eligible students have been notified via email!");
     } catch (err: unknown) {
-      alert((err as Error)?.message || "Failed to send drive notifications");
+      toast.error((err as Error)?.message || "Failed to send drive notifications");
     } finally {
       setNotifyingDriveId(null);
     }
@@ -183,7 +184,7 @@ export default function TPODrivesPage() {
       setExportingDriveId(`${driveId}-${format}`);
       await tpoService.exportDriveApplicants(driveId, format);
     } catch (err: unknown) {
-      alert((err as Error)?.message || `Failed to export applicants as ${format.toUpperCase()}`);
+      toast.error((err as Error)?.message || `Failed to export applicants as ${format.toUpperCase()}`);
     } finally {
       setExportingDriveId(null);
     }
@@ -201,7 +202,7 @@ export default function TPODrivesPage() {
         setDriveApplicants([]);
       }
     } catch (err: unknown) {
-      alert((err as Error)?.message || "Failed to load drive applicants");
+      toast.error((err as Error)?.message || "Failed to load drive applicants");
     } finally {
       setLoadingApplicants(false);
     }
@@ -219,7 +220,7 @@ export default function TPODrivesPage() {
         prev.map((app) => (app.id === applicationId ? { ...app, status } : app))
       );
     } catch (err: unknown) {
-      alert((err as Error)?.message || "Failed to update application status");
+      toast.error((err as Error)?.message || "Failed to update application status");
     } finally {
       setStatusUpdatingId(null);
     }
@@ -237,7 +238,7 @@ export default function TPODrivesPage() {
         )
       );
     } catch (err: unknown) {
-      alert((err as Error)?.message || "Failed to mark attendance");
+      toast.error((err as Error)?.message || "Failed to mark attendance");
     } finally {
       setStatusUpdatingId(null);
     }
@@ -279,21 +280,21 @@ export default function TPODrivesPage() {
     try {
       setIsSubmitting(true);
       if (!formData.companyName.trim()) {
-        alert("Please enter a company name.");
+        toast.error("Please enter a company name.");
         return;
       }
       if (!formData.jobRole.trim()) {
-        alert("Please enter a job role.");
+        toast.error("Please enter a job role.");
         return;
       }
       const minLpaVal = parseFloat(formData.minLpa);
       if (isNaN(minLpaVal) || minLpaVal <= 0) {
-        alert("Please enter a valid Min LPA (e.g. 6.5).");
+        toast.error("Please enter a valid Min LPA (e.g. 6.5).");
         return;
       }
       const maxLpaVal = formData.maxLpa.trim() ? parseFloat(formData.maxLpa) : null;
       if (maxLpaVal !== null && (isNaN(maxLpaVal) || maxLpaVal < minLpaVal)) {
-        alert("Max LPA must be greater than or equal to Min LPA.");
+        toast.error("Max LPA must be greater than or equal to Min LPA.");
         return;
       }
 
@@ -336,7 +337,7 @@ export default function TPODrivesPage() {
       if (fileInputRef.current) fileInputRef.current.value = "";
       fetchDrives();
     } catch (err: unknown) {
-      alert((err as Error)?.message || "Failed to create recruitment drive");
+      toast.error((err as Error)?.message || "Failed to create recruitment drive");
     } finally {
       setIsSubmitting(false);
     }

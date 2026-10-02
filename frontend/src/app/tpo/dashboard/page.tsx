@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import toast from "react-hot-toast";
 import Link from "next/link";
 import { tpoService } from "@/services/tpo.service";
 import { TpoAnalytics, EmailLog } from "@/types";
@@ -100,7 +101,7 @@ export default function TPODashboardPage() {
 
   const handleRefactorWithGroq = async () => {
     if (!rawAiNotes.trim()) {
-      alert("Please enter a few lines of rough notes or pick a preset template.");
+      toast.error("Please enter a few lines of rough notes or pick a preset template.");
       return;
     }
 
@@ -121,7 +122,7 @@ export default function TPODashboardPage() {
         setAnnouncementModalTab("preview");
       }
     } catch (err: unknown) {
-      alert((err as Error)?.message || "Failed to refactor announcement with AI.");
+      toast.error((err as Error)?.message || "Failed to refactor announcement with AI.");
     } finally {
       setIsRefactoringAi(false);
     }
@@ -155,7 +156,7 @@ export default function TPODashboardPage() {
       else setIsExportingXlsx(true);
       await tpoService.exportStudents(format);
     } catch (err: unknown) {
-      alert((err as Error)?.message || `Failed to export ${format.toUpperCase()}`);
+      toast.error((err as Error)?.message || `Failed to export ${format.toUpperCase()}`);
     } finally {
       if (format === "csv") setIsExportingCsv(false);
       else setIsExportingXlsx(false);
@@ -165,7 +166,7 @@ export default function TPODashboardPage() {
   const handleSendAnnouncement = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!announcementForm.title.trim() || !announcementForm.body.trim()) {
-      alert("Please fill in both announcement subject and message.");
+      toast.error("Please fill in both announcement subject and message.");
       return;
     }
 
@@ -193,7 +194,7 @@ export default function TPODashboardPage() {
         setAnnouncementSuccess(null);
       }, 2500);
     } catch (err: unknown) {
-      alert((err as Error)?.message || "Failed to send email announcement");
+      toast.error((err as Error)?.message || "Failed to send email announcement");
     } finally {
       setIsSendingAnnouncement(false);
     }
