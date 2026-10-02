@@ -59,7 +59,9 @@ export const getDashboardStats = async () => {
         id: true,
         fullName: true,
         branch: true,
+        studentType: true,
         currentPackageLpa: true,
+        user: { select: { email: true } },
         applications: {
           where: { status: "SELECTED" },
           select: {
@@ -132,7 +134,14 @@ export const getDashboardStats = async () => {
     median: getMedian(packages),
   };
 
-  // Company-wise package breakdown
+  // Salary Tiers calculated directly from DB packages
+  const salaryTiers = {
+    dream: { count: packages.filter((p) => p >= 10).length },
+    core: { count: packages.filter((p) => p >= 6 && p < 10).length },
+    standard: { count: packages.filter((p) => p < 6).length },
+  };
+
+  // Company-wise package breakdown with student deduplication
   const companyMap = {};
   placedStudentDetails.forEach((student) => {
     student.applications.forEach((app) => {
@@ -141,17 +150,33 @@ export const getDashboardStats = async () => {
       const companyName = app.drive.company.name;
       const companyId = app.drive.company.id;
       if (!companyMap[companyName]) {
-        companyMap[companyName] = { companyId, totalPackage: 0, count: 0, students: [] };
+        companyMap[companyName] = { 
+          companyId, 
+          totalPackage: 0, 
+          count: 0, 
+          students: [],
+          seenStudentIds: new Set(),
+        };
       }
+
+      // Prevent duplicate student count for the same company
+      if (companyMap[companyName].seenStudentIds.has(student.id)) return;
+      companyMap[companyName].seenStudentIds.add(student.id);
+
       const offerPackage =
-        app.drive.ctcMax !== null && app.drive.ctcMax !== undefined
+        student.currentPackageLpa ||
+        (app.drive.ctcMax !== null && app.drive.ctcMax !== undefined
           ? (app.drive.ctc + app.drive.ctcMax) / 2
-          : (app.drive.ctc || 0);
+          : (app.drive.ctc || 0));
 
       companyMap[companyName].totalPackage += offerPackage;
       companyMap[companyName].count += 1;
       companyMap[companyName].students.push({
+        id: student.id,
         name: student.fullName,
+        email: student.user?.email || null,
+        branch: student.branch,
+        studentType: student.studentType,
         role: app.drive.role,
         package: offerPackage,
       });
@@ -162,11 +187,11 @@ export const getDashboardStats = async () => {
     .map(([company, data]) => ({
       company,
       companyId: data.companyId,
-      avgPackage: Math.round((data.totalPackage / data.count) * 100) / 100,
+      avgPackage: data.count > 0 ? Math.round((data.totalPackage / data.count) * 100) / 100 : 0,
       studentsHired: data.count,
       details: data.students,
     }))
-    .sort((a, b) => b.avgPackage - a.avgPackage);
+    .sort((a, b) => b.studentsHired - a.studentsHired || b.avgPackage - a.avgPackage);
 
   // Branch-wise placement breakdown
   const branchMap = {};
@@ -252,6 +277,7 @@ export const getDashboardStats = async () => {
     },
     packages: {
       ...packageStats,
+      salaryTiers,
       companyWise,
       branchWise,
     },

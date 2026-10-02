@@ -45,12 +45,25 @@ export interface TpoAnalytics {
     lowest: number;
     average: number;
     median: number;
+    salaryTiers?: {
+      dream: { count: number };
+      core: { count: number };
+      standard: { count: number };
+    };
     companyWise: Array<{
       company: string;
       companyId?: string;
       avgPackage: number;
       studentsHired: number;
-      details: Array<{ name: string; role: string; package: number }>;
+      details: Array<{
+        id?: string;
+        name: string;
+        email?: string | null;
+        branch?: string | null;
+        studentType?: string | null;
+        role: string;
+        package: number;
+      }>;
     }>;
     branchWise: Array<{
       branch: string;
