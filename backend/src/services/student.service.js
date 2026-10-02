@@ -143,6 +143,22 @@ export const submitStudentProfile = async (userId, profileData) => {
     password, // Optional — for Google users setting a password
   } = profileData;
 
+  // Check phone uniqueness
+  if (phone) {
+    const normalizedPhone = phone.trim();
+    const existingPhone = await prisma.student.findFirst({
+      where: {
+        phone: normalizedPhone,
+        id: { not: student.id },
+      },
+    });
+    if (existingPhone) {
+      const error = new Error("An account with this phone number already exists");
+      error.statusCode = 409;
+      throw error;
+    }
+  }
+
   // Auto-calculate percentages
   const tenthPercentage = calculateTenthPercentage({
     mathsMarks,
@@ -245,6 +261,22 @@ export const updateStudentProfile = async (userId, updateData, isTpo = false) =>
   }
 
   const payload = { ...updateData };
+
+  // Check phone uniqueness if phone is being updated
+  if (payload.phone) {
+    payload.phone = payload.phone.trim();
+    const existingPhone = await prisma.student.findFirst({
+      where: {
+        phone: payload.phone,
+        id: { not: student.id },
+      },
+    });
+    if (existingPhone) {
+      const error = new Error("An account with this phone number already exists");
+      error.statusCode = 409;
+      throw error;
+    }
+  }
 
   // Parse dob if being updated
   if (payload.dob) {
