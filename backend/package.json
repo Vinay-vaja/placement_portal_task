@@ -6,11 +6,13 @@
   "type": "module",
   "scripts": {
     "dev": "node --watch src/server.js",
+    "build": "prisma generate",
+    "postinstall": "prisma generate",
     "start": "node src/server.js",
-    "prisma:generate": "node_modules/.bin/prisma generate",
-    "prisma:migrate": "node_modules/.bin/prisma migrate dev",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate deploy",
     "prisma:seed": "node prisma/seed.js",
-    "prisma:studio": "node_modules/.bin/prisma studio",
+    "prisma:studio": "prisma studio",
     "test:api": "node scripts/test_suite.js"
   },
   "keywords": [
