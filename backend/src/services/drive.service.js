@@ -168,8 +168,8 @@ export const getDrives = async (query = {}, userId = null, userRole = null) => {
       include: { semesterSpis: { orderBy: { semester: "asc" } } },
     });
 
-    // If student profile is missing, unlocked, or dismissed -> return 0 drives
-    if (!student || !student.profileLocked || student.isDismissed) {
+    // If student record does not exist in DB -> return 0 drives
+    if (!student) {
       return buildPaginatedResponse([], 0, page, limit);
     }
 
@@ -183,25 +183,34 @@ export const getDrives = async (query = {}, userId = null, userRole = null) => {
       where.id = { notIn: appliedDriveIds };
     }
 
-    // Fetch candidate drives matching base filters
-    const candidateDrives = await prisma.recruitmentDrive.findMany({
-      where,
-      include: {
-        company: { select: { id: true, name: true, imageUrl: true } },
-        _count: { select: { applications: true } },
-      },
-      orderBy: { createdAt: "desc" },
+    // Fetch candidate drives matching base filters and evaluate eligibility for each
+    const [candidateDrives, total] = await Promise.all([
+      prisma.recruitmentDrive.findMany({
+        where,
+        include: {
+          company: { select: { id: true, name: true, imageUrl: true } },
+          _count: { select: { applications: true } },
+        },
+        orderBy: { createdAt: "desc" },
+        skip,
+        take,
+      }),
+      prisma.recruitmentDrive.count({ where }),
+    ]);
+
+    // Attach authoritative eligibility results { eligible: boolean, reasons: string[] }
+    const drivesWithEligibility = candidateDrives.map((drive) => {
+      const eligibilityResult = checkStudentEligibility(student, drive);
+      return {
+        ...drive,
+        eligibility: {
+          eligible: eligibilityResult.eligible,
+          reasons: eligibilityResult.reasons,
+        },
+      };
     });
 
-    // Filter candidate drives using authoritative checkStudentEligibility
-    const eligibleDrives = candidateDrives.filter(
-      (drive) => checkStudentEligibility(student, drive).eligible
-    );
-
-    const total = eligibleDrives.length;
-    const paginatedDrives = eligibleDrives.slice(skip, skip + take);
-
-    return buildPaginatedResponse(paginatedDrives, total, page, limit);
+    return buildPaginatedResponse(drivesWithEligibility, total, page, limit);
   }
 
   // Default path for non-STUDENT users (e.g. CENTRAL_TPO)

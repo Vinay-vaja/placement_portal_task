@@ -22,6 +22,7 @@ import {
   Lock,
   ExternalLink,
 } from "lucide-react";
+import toast from "react-hot-toast";
 
 function CompanyLogo({ src, name }: { src?: string | null; name: string }) {
   const [imageError, setImageError] = useState(false);
@@ -271,6 +272,38 @@ function DriveDetailsModal({
             </div>
           )}
 
+          {/* Authoritative Eligibility Breakdown */}
+          {drive.eligibility && (
+            <div
+              className={`p-3.5 rounded-2xl border text-xs space-y-1.5 ${
+                drive.eligibility.eligible
+                  ? "bg-emerald-50/70 border-emerald-200/80 text-emerald-900"
+                  : "bg-rose-50/70 border-rose-200/80 text-rose-900"
+              }`}
+            >
+              <div className="font-bold flex items-center gap-1.5">
+                {drive.eligibility.eligible ? (
+                  <>
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                    You meet all eligibility criteria for this recruitment drive
+                  </>
+                ) : (
+                  <>
+                    <AlertCircle className="h-4 w-4 text-rose-600 shrink-0" />
+                    You are not eligible for this recruitment drive:
+                  </>
+                )}
+              </div>
+              {!drive.eligibility.eligible && drive.eligibility.reasons.length > 0 && (
+                <ul className="list-disc list-inside space-y-1 pl-1 text-[11px] text-rose-800">
+                  {drive.eligibility.reasons.map((reason, idx) => (
+                    <li key={idx}>{reason}</li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
+
           {/* Application Rules */}
           <div className="p-3.5 rounded-2xl bg-amber-50/70 border border-amber-200/80 text-[11px] text-amber-900 flex items-start gap-2.5">
             <AlertCircle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
@@ -290,7 +323,15 @@ function DriveDetailsModal({
             Close Details
           </Button>
 
-          {isVerified ? (
+          {drive.eligibility && !drive.eligibility.eligible ? (
+            <Button
+              variant="outline"
+              disabled
+              className="flex-1 text-xs h-10 rounded-xl gap-2 border-rose-200 text-rose-700 bg-rose-50 cursor-not-allowed opacity-80"
+            >
+              <AlertCircle className="h-3.5 w-3.5 text-rose-600" /> Ineligible to Apply
+            </Button>
+          ) : isVerified ? (
             <Button
               variant="primary"
               onClick={() => {
@@ -365,14 +406,23 @@ export default function StudentDrivesPage() {
   const isVerified = studentProfile?.verificationStatus === "VERIFIED";
 
   const openApplyModal = (driveId: string) => {
+    const targetDrive = drives.find((d) => d.id === driveId);
+    if (targetDrive?.eligibility && !targetDrive.eligibility.eligible) {
+      const reasonsList = targetDrive.eligibility.reasons.join(". ");
+      setErrorMessage(`You are not eligible for this drive: ${reasonsList}`);
+      toast.error("You do not meet the eligibility criteria for this drive.");
+      return;
+    }
     if (!studentProfile?.profileLocked) {
       setErrorMessage("Please complete and submit your academic profile before applying to drives.");
+      toast.error("Please complete and submit your academic profile before applying.");
       return;
     }
     if (!isVerified) {
       setErrorMessage(
         `Your profile status is ${studentProfile?.verificationStatus || "PENDING"}. Central TPO verification is required before you can apply to drives.`
       );
+      toast.error("Central TPO verification is required before you can apply.");
       return;
     }
     setApplyModalDriveId(driveId);
@@ -390,10 +440,12 @@ export default function StudentDrivesPage() {
   const handleApply = async (driveId: string) => {
     if (!termsAccepted) {
       setErrorMessage("You must accept the terms before applying.");
+      toast.error("You must accept the terms before applying.");
       return;
     }
     if (!resumeFile) {
       setErrorMessage("Please upload your resume PDF before applying.");
+      toast.error("Please upload your resume PDF before applying.");
       return;
     }
     try {
@@ -404,15 +456,20 @@ export default function StudentDrivesPage() {
       formData.append("termsAccepted", "true");
       formData.append("resume", resumeFile);
       await driveService.applyToDrive(driveId, formData);
+      toast.success("Application submitted successfully!");
       setSuccessMessage("Application submitted successfully!");
       closeApplyModal();
       fetchDrivesAndProfile();
     } catch (err: unknown) {
-      setErrorMessage((err as Error)?.message || "Failed to submit application. Make sure your profile is verified.");
+      const msg = (err as Error)?.message || "Failed to submit application. Make sure your profile is verified.";
+      setErrorMessage(msg);
+      toast.error(msg);
     } finally {
       setApplyingDriveId(null);
     }
   };
+
+  const eligibleDrivesCount = drives.filter((d) => d.eligibility?.eligible !== false).length;
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto py-4 px-2 sm:px-4">
@@ -441,7 +498,7 @@ export default function StudentDrivesPage() {
             </span>
           )}
           <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-[#0071E3]/10 text-[#0071E3] border border-[#0071E3]/20">
-            {drives.length} Open Drives
+            {eligibleDrivesCount} Eligible / {drives.length} Open Drives
           </span>
         </div>
       </div>
@@ -557,9 +614,22 @@ export default function StudentDrivesPage() {
                         )}
                       </div>
                     </div>
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-[#34C759]/10 text-[#28A745] border border-[#34C759]/20 shrink-0">
-                      OPEN
-                    </span>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {drive.eligibility ? (
+                        drive.eligibility.eligible ? (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            ELIGIBLE
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-rose-50 text-rose-700 border border-rose-200">
+                            INELIGIBLE
+                          </span>
+                        )
+                      ) : null}
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-[#34C759]/10 text-[#28A745] border border-[#34C759]/20">
+                        OPEN
+                      </span>
+                    </div>
                   </div>
                 </CardHeader>
 
@@ -607,6 +677,28 @@ export default function StudentDrivesPage() {
                     </div>
                   </div>
 
+                  {/* Ineligibility Reason Callout */}
+                  {drive.eligibility && !drive.eligibility.eligible && drive.eligibility.reasons?.length > 0 && (
+                    <div className="rounded-2xl bg-rose-50/70 border border-rose-200/80 p-3 text-[11px] text-rose-900 space-y-1">
+                      <div className="font-semibold flex items-center gap-1 text-rose-700">
+                        <AlertCircle className="h-3.5 w-3.5 text-rose-600 shrink-0" />
+                        Ineligible Criteria:
+                      </div>
+                      <ul className="list-disc list-inside space-y-0.5 text-rose-800/90 text-[10.5px]">
+                        {drive.eligibility.reasons.slice(0, 2).map((reason, i) => (
+                          <li key={i} className="truncate" title={reason}>
+                            {reason}
+                          </li>
+                        ))}
+                        {drive.eligibility.reasons.length > 2 && (
+                          <li className="text-[10px] text-rose-700 font-medium">
+                            +{drive.eligibility.reasons.length - 2} more (click Details)
+                          </li>
+                        )}
+                      </ul>
+                    </div>
+                  )}
+
                   <div className="flex items-center gap-2 mt-2">
                     <Button
                       variant="outline"
@@ -615,7 +707,15 @@ export default function StudentDrivesPage() {
                     >
                       <FileText className="h-3.5 w-3.5 text-[#86868B]" /> View Details
                     </Button>
-                    {isVerified ? (
+                    {drive.eligibility && !drive.eligibility.eligible ? (
+                      <Button
+                        variant="outline"
+                        onClick={() => setDetailsModalDrive(drive)}
+                        className="flex-1 text-xs font-medium h-9.5 gap-1 border-rose-200 text-rose-700 bg-rose-50 hover:bg-rose-100"
+                      >
+                        <AlertCircle className="h-3.5 w-3.5 text-rose-500" /> Ineligible
+                      </Button>
+                    ) : isVerified ? (
                       <Button
                         variant="primary"
                         onClick={() => openApplyModal(drive.id)}

@@ -229,7 +229,7 @@ export default function TPODrivesPage() {
         setDriveApplicants([]);
       }
     } catch (err: unknown) {
-      alert((err as Error)?.message || "Failed to load drive applicants");
+      toast.error((err as Error)?.message || "Failed to load drive applicants");
     } finally {
       setLoadingApplicants(false);
     }
@@ -246,8 +246,9 @@ export default function TPODrivesPage() {
       setDriveApplicants((prev) =>
         prev.map((app) => (app.id === applicationId ? { ...app, status } : app))
       );
+      toast.success(`Application status updated to ${status}`);
     } catch (err: unknown) {
-      alert((err as Error)?.message || "Failed to update application status");
+      toast.error((err as Error)?.message || "Failed to update application status");
     } finally {
       setStatusUpdatingId(null);
     }
@@ -1020,9 +1021,18 @@ export default function TPODrivesPage() {
                   Loading applicants...
                 </div>
               ) : driveApplicants.length === 0 ? (
-                <div className="p-12 text-center text-xs text-slate-500 space-y-2">
-                  <Users className="mx-auto h-8 w-8 text-slate-300" />
-                  <p>No student applications submitted for this recruitment drive yet.</p>
+                <div className="py-16 px-6 text-center space-y-3">
+                  <div className="mx-auto h-16 w-16 rounded-2xl bg-slate-50 border border-slate-200/80 flex items-center justify-center shadow-xs">
+                    <Users className="h-8 w-8 text-slate-400" />
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-sm font-semibold text-slate-800">
+                      No applications submitted for this drive yet
+                    </p>
+                    <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                      Eligible candidates who apply to this recruitment drive will appear here for resume review, attendance tracking, and selection round management.
+                    </p>
+                  </div>
                 </div>
               ) : (
                 <div className="overflow-x-auto">
