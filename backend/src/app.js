@@ -38,6 +38,8 @@ app.use(
         // Allow localhost, any Vercel domain, or explicitly configured clientUrl
         if (
           /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(cleanOrigin) ||
+          cleanOrigin === "https://ldce-placement-portal.vercel.app" ||
+          cleanOrigin === "https://placement-portal-gilt-eta.vercel.app" ||
           hostname.endsWith(".vercel.app") ||
           allowedOrigins.includes(cleanOrigin) ||
           allowedOrigins.includes("*") ||

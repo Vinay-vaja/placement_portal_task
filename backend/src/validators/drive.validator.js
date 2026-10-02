@@ -77,10 +77,21 @@ export const createDriveSchema = z
     companyLogo: z
       .string()
       .trim()
-      .url("Invalid logo URL")
-      .or(z.literal(""))
       .optional()
-      .nullable(),
+      .nullable()
+      .or(z.literal("")),
+    brochureUrl: z
+      .string()
+      .trim()
+      .optional()
+      .nullable()
+      .or(z.literal("")),
+    brochureLink: z
+      .string()
+      .trim()
+      .optional()
+      .nullable()
+      .or(z.literal("")),
 
     status: z.enum(["ACTIVE", "CLOSED"]).default("ACTIVE"),
     maxSelectionsPerStudent: z.coerce.number().int().min(1).default(1),
@@ -130,7 +141,9 @@ export const createDriveSchema = z
       if (isNaN(d.getTime())) return false;
       const todayStart = new Date();
       todayStart.setHours(0, 0, 0, 0);
-      return d >= todayStart;
+      const dEnd = new Date(d);
+      dEnd.setHours(23, 59, 59, 999);
+      return dEnd >= todayStart;
     },
     { message: "Application deadline cannot be in the past", path: ["applicationDeadline"] }
   );
@@ -138,13 +151,25 @@ export const createDriveSchema = z
 export const updateDriveSchema = z
   .object({
     companyId: z.string().min(1).optional(),
+    companyName: z.string().min(1).optional().nullable(),
     companyLogo: z
       .string()
       .trim()
-      .url("Invalid logo URL")
-      .or(z.literal(""))
       .optional()
-      .nullable(),
+      .nullable()
+      .or(z.literal("")),
+    brochureUrl: z
+      .string()
+      .trim()
+      .optional()
+      .nullable()
+      .or(z.literal("")),
+    brochureLink: z
+      .string()
+      .trim()
+      .optional()
+      .nullable()
+      .or(z.literal("")),
     role: z.string().min(2).trim().optional(),
     jobRole: z.string().min(2).trim().optional(),
     description: z.string().optional().nullable(),
@@ -196,7 +221,6 @@ export const updateDriveSchema = z
       .optional()
       .nullable(),
   })
-  .strict()
   .refine(
     (data) => {
       const min = data.ctc ?? data.minLpa;
@@ -216,7 +240,9 @@ export const updateDriveSchema = z
       if (isNaN(d.getTime())) return false;
       const todayStart = new Date();
       todayStart.setHours(0, 0, 0, 0);
-      return d >= todayStart;
+      const dEnd = new Date(d);
+      dEnd.setHours(23, 59, 59, 999);
+      return dEnd >= todayStart;
     },
     { message: "Application deadline cannot be in the past", path: ["applicationDeadline"] }
   );

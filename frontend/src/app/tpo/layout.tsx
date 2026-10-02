@@ -37,7 +37,7 @@ export default function TPOLayout({ children }: TPOLayoutProps) {
 
   return (
     <RBACGuard allowedRoles={["CENTRAL_TPO"]}>
-      <div className="min-h-screen bg-[#F5F5F7] flex flex-col selection:bg-[#0071E3]/20">
+      <div className="min-h-screen bg-[#F5F5F7] flex flex-col selection:bg-[#0071E3]/20 overflow-x-hidden">
         {/* Apple Translucent Top Bar */}
         <header className="sticky top-0 z-40 w-full border-b border-black/[0.06] bg-[#FBFBFD]/80 backdrop-blur-xl">
           <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4 sm:px-6">
@@ -165,7 +165,7 @@ export default function TPOLayout({ children }: TPOLayoutProps) {
         </header>
 
         {/* Page Content */}
-        <main className="flex-1 py-6 px-4 sm:px-6 max-w-7xl mx-auto w-full">
+        <main className="flex-1 py-4 sm:py-6 px-3 sm:px-6 max-w-7xl mx-auto w-full overflow-x-hidden">
           {children}
         </main>
 

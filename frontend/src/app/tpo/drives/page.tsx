@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import toast from "react-hot-toast";
 import { driveService } from "@/services/drive.service";
 import { RecruitmentDrive } from "@/types";
@@ -72,7 +73,7 @@ function CompanyLogo({ src, alt }: { src?: string | null; alt: string }) {
   );
 }
 
-export default function TPODrivesPage() {
+function TPODrivesContent() {
   const [drives, setDrives] = useState<RecruitmentDrive[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -292,16 +293,36 @@ export default function TPODrivesPage() {
     }
   };
 
+  const searchParams = useSearchParams();
+
   useEffect(() => {
     fetchDrives();
+  }, []);
+
+  useEffect(() => {
+    const isCreate =
+      searchParams?.get("create") === "true" ||
+      searchParams?.get("new") === "true" ||
+      (typeof window !== "undefined" &&
+        (new URLSearchParams(window.location.search).get("create") === "true" ||
+          new URLSearchParams(window.location.search).get("new") === "true"));
+
+    if (isCreate) {
+      setModalOpen(true);
+    }
+  }, [searchParams]);
+
+  const handleCloseCreateModal = () => {
+    setModalOpen(false);
     if (typeof window !== "undefined") {
-      const params = new URLSearchParams(window.location.search);
-      if (params.get("create") === "true" || params.get("new") === "true") {
-        setModalOpen(true);
-        window.history.replaceState({}, "", window.location.pathname);
+      const url = new URL(window.location.href);
+      if (url.searchParams.has("create") || url.searchParams.has("new")) {
+        url.searchParams.delete("create");
+        url.searchParams.delete("new");
+        window.history.replaceState({}, "", url.pathname + (url.search ? url.search : ""));
       }
     }
-  }, []);
+  };
 
   // Lock background scrolling when any popup/modal is open
   useEffect(() => {
@@ -371,7 +392,7 @@ export default function TPODrivesPage() {
       });
 
       toast.success("Recruitment drive created successfully!");
-      setModalOpen(false);
+      handleCloseCreateModal();
       // Reset form
       setFormData({
         companyName: "",
@@ -810,15 +831,21 @@ export default function TPODrivesPage() {
 
       {/* Create Drive Modal */}
       {modalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs overscroll-contain">
-          <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto overscroll-contain bg-white rounded-2xl shadow-2xl border border-slate-200 p-6 space-y-6">
+        <div 
+          onClick={handleCloseCreateModal}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-3 sm:p-4 backdrop-blur-xs overscroll-contain animate-in fade-in duration-150"
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-2xl max-h-[92vh] sm:max-h-[90vh] overflow-y-auto overscroll-contain bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-200 p-4 sm:p-6 space-y-5 sm:space-y-6"
+          >
             <div className="flex items-center justify-between border-b border-slate-100 pb-4">
               <div>
                 <h3 className="text-lg font-bold text-slate-900">Post New Recruitment Drive</h3>
                 <p className="text-xs text-slate-500">Configure salary package range, branch cutoffs, and deadlines.</p>
               </div>
               <button
-                onClick={() => setModalOpen(false)}
+                onClick={handleCloseCreateModal}
                 className="rounded-lg p-1 text-slate-400 hover:bg-slate-100"
               >
                 <X className="h-5 w-5" />
@@ -1129,7 +1156,7 @@ export default function TPODrivesPage() {
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => setModalOpen(false)}
+                  onClick={handleCloseCreateModal}
                   className="text-xs"
                 >
                   Cancel
@@ -1150,8 +1177,8 @@ export default function TPODrivesPage() {
 
       {/* Applicants & Eligible Students Modal */}
       {applicantsModalOpen && activeDriveForApplicants && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs overscroll-contain">
-          <div className="w-full max-w-4xl max-h-[88vh] flex flex-col overscroll-contain bg-white rounded-3xl shadow-2xl border border-slate-200 p-6 space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-2 sm:p-4 backdrop-blur-xs overscroll-contain animate-in fade-in duration-150">
+          <div className="w-full max-w-4xl max-h-[92vh] sm:max-h-[88vh] flex flex-col overscroll-contain bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-200 p-3 sm:p-6 space-y-3 sm:space-y-4">
             {/* Header */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-slate-100 pb-4 gap-3">
               <div>
@@ -1549,5 +1576,19 @@ export default function TPODrivesPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function TPODrivesPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex h-64 items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+        </div>
+      }
+    >
+      <TPODrivesContent />
+    </Suspense>
   );
 }

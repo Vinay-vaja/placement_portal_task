@@ -31,9 +31,14 @@ import {
   Check,
   ChevronRight,
   Sparkles,
+  BarChart3,
+  PieChart,
+  LayoutDashboard,
 } from "lucide-react";
+import { VisualAnalytics } from "@/components/tpo/visual-analytics";
 
 export default function TPODashboardPage() {
+  const [dashboardView, setDashboardView] = useState<"overview" | "analytics">("overview");
   const [stats, setStats] = useState<TpoAnalytics | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -269,6 +274,21 @@ export default function TPODashboardPage() {
 
         {/* Global Action Toolbar */}
         <div className="flex flex-wrap items-center gap-2">
+          {/* Show Analytics Button */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setDashboardView(dashboardView === "analytics" ? "overview" : "analytics")}
+            className={`gap-1.5 text-xs font-semibold h-9 transition-all ${
+              dashboardView === "analytics"
+                ? "bg-[#0071E3] text-white border-[#0071E3] shadow-md shadow-[#0071E3]/20 hover:bg-[#0071E3]/90"
+                : "border-black/[0.12] bg-white text-[#1D1D1F] hover:bg-neutral-50 shadow-xs"
+            }`}
+          >
+            <BarChart3 className={`h-4 w-4 ${dashboardView === "analytics" ? "text-white" : "text-[#0071E3]"}`} />
+            {dashboardView === "analytics" ? "Back to Overview" : "Show Analytics & Charts"}
+          </Button>
+
           {/* Email Announcement */}
           <Button
             variant="outline"
@@ -333,12 +353,55 @@ export default function TPODashboardPage() {
         </div>
       </div>
 
+      {/* View Switcher: Dashboard Overview vs Visual Analytics */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-2 rounded-2xl border border-black/[0.06] shadow-2xs">
+        <div className="flex items-center gap-1.5 p-1 rounded-xl bg-black/[0.04] w-fit">
+          <button
+            onClick={() => setDashboardView("overview")}
+            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              dashboardView === "overview"
+                ? "bg-white text-[#1D1D1F] shadow-xs"
+                : "text-[#86868B] hover:text-[#1D1D1F]"
+            }`}
+          >
+            <LayoutDashboard className="h-3.5 w-3.5" />
+            Dashboard Overview
+          </button>
+          <button
+            onClick={() => setDashboardView("analytics")}
+            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              dashboardView === "analytics"
+                ? "bg-[#0071E3] text-white shadow-xs"
+                : "text-[#86868B] hover:text-[#1D1D1F]"
+            }`}
+          >
+            <PieChart className="h-3.5 w-3.5" />
+            Visual Analytics & Charts
+            <span className="flex h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+          </button>
+        </div>
+
+        <div className="text-[11px] text-[#86868B] px-2 flex items-center gap-1">
+          <span>LDCE Placement Cell</span> • <span>Real-time Live Sync</span>
+        </div>
+      </div>
+
       {errorMessage && (
         <div className="flex items-center gap-2.5 rounded-2xl bg-red-50 p-4 text-xs font-medium text-[#FF3B30] border border-[#FF3B30]/20">
           <AlertCircle className="h-4 w-4 flex-shrink-0" />
           <span>{errorMessage}</span>
         </div>
       )}
+
+      {/* Main Content: Visual Analytics or Standard Overview */}
+      {dashboardView === "analytics" ? (
+        <VisualAnalytics
+          stats={stats}
+          isLoading={isLoading}
+          onExportCompanyWise={handleExportCompanyWise}
+        />
+      ) : (
+        <>
 
       {/* Primary KPI Metrics */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -628,21 +691,44 @@ export default function TPODashboardPage() {
             </Link>
 
             <Link
-              href="/tpo/drives"
+              href="/tpo/drives?create=true"
               className="flex items-start gap-3.5 p-4 rounded-2xl border border-black/[0.06] bg-[#F5F5F7]/40 hover:bg-white hover:border-black/[0.12] hover:shadow-sm transition-all group"
             >
               <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#FF9500] text-white">
-                <Briefcase className="h-4.5 w-4.5" />
+                <PlusCircle className="h-4.5 w-4.5" />
               </div>
               <div className="space-y-0.5">
-                <h4 className="text-xs sm:text-sm font-semibold text-[#1D1D1F] group-hover:text-[#FF9500] transition-colors">
-                  Recruitment Drives
-                </h4>
+                <div className="flex items-center gap-1.5">
+                  <h4 className="text-xs sm:text-sm font-semibold text-[#1D1D1F] group-hover:text-[#FF9500] transition-colors">
+                    Post New Drive
+                  </h4>
+                  <span className="text-[10px] bg-[#FF9500]/10 text-[#FF9500] font-bold px-1.5 py-0.5 rounded-full">New</span>
+                </div>
                 <p className="text-xs text-[#86868B] leading-snug">
                   Create new drives, company roles, CTC ranges, and branch cutoffs.
                 </p>
               </div>
             </Link>
+
+            <button
+              onClick={() => setDashboardView("analytics")}
+              className="flex items-start text-left gap-3.5 p-4 rounded-2xl border border-black/[0.06] bg-[#F5F5F7]/40 hover:bg-white hover:border-black/[0.12] hover:shadow-sm transition-all group"
+            >
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#0071E3] text-white">
+                <BarChart3 className="h-4.5 w-4.5" />
+              </div>
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-1.5">
+                  <h4 className="text-xs sm:text-sm font-semibold text-[#1D1D1F] group-hover:text-[#0071E3] transition-colors">
+                    Visual Analytics & Charts
+                  </h4>
+                  <span className="text-[10px] bg-emerald-50 text-emerald-600 font-bold px-1.5 py-0.5 rounded-full">Visuals</span>
+                </div>
+                <p className="text-xs text-[#86868B] leading-snug">
+                  Inspect placement pie chart, company hiring bar chart, and salary tiers.
+                </p>
+              </div>
+            </button>
 
             <button
               onClick={() => handleExportStudents("csv")}
@@ -730,6 +816,8 @@ export default function TPODashboardPage() {
           </CardContent>
         </Card>
       </div>
+    </>
+  )}
 
       {/* EMAIL ANNOUNCEMENT MODAL */}
       {announcementModalOpen && (
