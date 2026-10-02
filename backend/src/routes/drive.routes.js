@@ -18,6 +18,9 @@ router.use(authMiddleware);
 // GET /api/drives - all authenticated users can view drives
 router.get("/", driveController.getDrives);
 
+// GET /api/drives/:id/eligibility - authenticated student can check their eligibility
+router.get("/:id/eligibility", driveController.checkEligibility);
+
 // GET /api/drives/:id - all authenticated users can view a drive
 router.get("/:id", driveController.getDriveById);
 

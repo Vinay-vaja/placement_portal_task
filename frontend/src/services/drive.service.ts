@@ -11,8 +11,20 @@ export const driveService = {
     return apiClient.get<ApiResponse<PaginatedResponse<RecruitmentDrive>>>("/drives", { params });
   },
 
+  getDriveById: async (id: string): Promise<ApiResponse<RecruitmentDrive>> => {
+    return apiClient.get<ApiResponse<RecruitmentDrive>>(`/drives/${id}`);
+  },
+
   createDrive: async (data: Partial<RecruitmentDrive>): Promise<ApiResponse<RecruitmentDrive>> => {
     return apiClient.post<ApiResponse<RecruitmentDrive>>("/drives", data);
+  },
+
+  updateDrive: async (id: string, data: Partial<RecruitmentDrive>): Promise<ApiResponse<RecruitmentDrive>> => {
+    return apiClient.put<ApiResponse<RecruitmentDrive>>(`/drives/${id}`, data);
+  },
+
+  deleteDrive: async (id: string): Promise<ApiResponse<{ id: string }>> => {
+    return apiClient.delete<ApiResponse<{ id: string }>>(`/drives/${id}`);
   },
 
   checkEligibility: async (driveId: string): Promise<ApiResponse<EligibilityResult>> => {

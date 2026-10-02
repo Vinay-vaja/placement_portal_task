@@ -330,3 +330,40 @@ export const deleteDrive = async (driveId) => {
   await prisma.recruitmentDrive.delete({ where: { id: driveId } });
   return { id: driveId };
 };
+
+/**
+ * Check student eligibility for a specific drive
+ */
+export const checkEligibilityForStudent = async (userId, driveId) => {
+  const drive = await prisma.recruitmentDrive.findUnique({
+    where: { id: driveId },
+    include: {
+      company: { select: { id: true, name: true, imageUrl: true } },
+    },
+  });
+
+  if (!drive) {
+    const error = new Error("Recruitment drive not found");
+    error.statusCode = 404;
+    throw error;
+  }
+
+  const student = await prisma.student.findUnique({
+    where: { userId },
+    include: { semesterSpis: { orderBy: { semester: "asc" } } },
+  });
+
+  if (!student) {
+    return {
+      eligible: false,
+      isEligible: false,
+      reasons: ["Student profile not found. Please complete your registration."],
+    };
+  }
+
+  const result = checkStudentEligibility(student, drive);
+  return {
+    ...result,
+    isEligible: result.eligible,
+  };
+};
