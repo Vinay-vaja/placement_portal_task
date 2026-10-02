@@ -338,30 +338,32 @@ export function VisualAnalytics({ stats, isLoading, onExportCompanyWise }: Visua
       {/* ============================================================ */}
       {/* 3. TABS NAVIGATION */}
       {/* ============================================================ */}
-      <div className="flex flex-wrap items-center gap-2 border-b border-black/[0.06] pb-3">
-        {[
-          { id: "overview", label: "Donut & Top Leaderboards", icon: PieChart },
-          { id: "companies", label: `Company Wise Roster (${companyWise.length})`, icon: Building2 },
-          { id: "branches", label: "Branch Distribution Bar Chart", icon: GraduationCap },
-          { id: "tiers", label: "Salary Tiers & Packages", icon: Award },
-        ].map((tab) => {
-          const Icon = tab.icon;
-          const isActive = activeTab === tab.id;
-          return (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id as any)}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-full text-xs font-bold transition-all ${
-                isActive
-                  ? "bg-[#0071E3] text-white shadow-md shadow-[#0071E3]/20"
-                  : "bg-white text-slate-600 hover:text-slate-900 border border-slate-200 hover:border-slate-300"
-              }`}
-            >
-              <Icon className="h-4 w-4" />
-              <span>{tab.label}</span>
-            </button>
-          );
-        })}
+      <div className="border-b border-black/[0.08]">
+        <nav className="flex items-center gap-1 sm:gap-6 -mb-px overflow-x-auto no-scrollbar" aria-label="Visual Analytics Views">
+          {[
+            { id: "overview", label: "Donut & Top Leaderboards", icon: PieChart },
+            { id: "companies", label: `Company Wise Roster (${companyWise.length})`, icon: Building2 },
+            { id: "branches", label: "Branch Distribution Bar Chart", icon: GraduationCap },
+            { id: "tiers", label: "Salary Tiers & Packages", icon: Award },
+          ].map((tab) => {
+            const Icon = tab.icon;
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id as any)}
+                className={`flex items-center gap-1.5 py-2.5 px-3 text-xs sm:text-sm font-medium transition-colors border-b-2 whitespace-nowrap ${
+                  isActive
+                    ? "border-[#0071E3] text-[#0071E3] font-semibold"
+                    : "border-transparent text-[#86868B] hover:text-[#1D1D1F] hover:border-black/[0.12]"
+                }`}
+              >
+                <Icon className="h-3.5 w-3.5" />
+                <span>{tab.label}</span>
+              </button>
+            );
+          })}
+        </nav>
       </div>
 
       {/* ============================================================ */}

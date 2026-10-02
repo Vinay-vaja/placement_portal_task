@@ -39,6 +39,7 @@ import { VisualAnalytics } from "@/components/tpo/visual-analytics";
 
 export default function TPODashboardPage() {
   const [dashboardView, setDashboardView] = useState<"overview" | "analytics">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "students" | "companies" | "drives" | "applications" | "analytics">("overview");
   const [stats, setStats] = useState<TpoAnalytics | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -255,69 +256,59 @@ export default function TPODashboardPage() {
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto py-4 px-2 sm:px-4">
-      {/* Apple Minimal Hero Bar */}
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 rounded-3xl bg-white border border-black/[0.08] p-6 sm:p-8 shadow-[0_4px_24px_rgba(0,0,0,0.03)]">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-semibold tracking-wide bg-[#0071E3]/10 text-[#0071E3] uppercase">
-              <Sparkles className="h-3 w-3" /> Live Analytics
-            </span>
-            <span className="text-xs text-[#86868B]">Central Placement Administration</span>
-          </div>
+      {/* Clean Minimal Header Bar */}
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 rounded-2xl bg-white border border-black/[0.06] p-5 sm:p-6 shadow-xs">
+        <div className="space-y-0.5">
+          <p className="text-xs font-medium text-[#86868B]">Central Placement Cell</p>
           <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-[#1D1D1F]">
-            Placement & Analytics Hub
+            Placement Management Dashboard
           </h1>
-          <p className="text-xs sm:text-sm text-[#86868B]">
-            Central Training & Placement Cell • LDCE Campus Drive Monitoring & Student Pipeline
-          </p>
+          <p className="text-xs sm:text-sm text-[#86868B]">LDCE • Campus Recruitment 2026</p>
         </div>
 
         {/* Global Action Toolbar */}
         <div className="flex flex-wrap items-center gap-2">
-          {/* Show Analytics Button */}
+          {/* Secondary actions: visually lighter */}
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setDashboardView(dashboardView === "analytics" ? "overview" : "analytics")}
-            className={`gap-1.5 text-xs font-semibold h-9 transition-all ${
-              dashboardView === "analytics"
-                ? "bg-[#0071E3] text-white border-[#0071E3] shadow-md shadow-[#0071E3]/20 hover:bg-[#0071E3]/90"
-                : "border-black/[0.12] bg-white text-[#1D1D1F] hover:bg-neutral-50 shadow-xs"
-            }`}
+            onClick={() => {
+              const nextView = dashboardView === "analytics" ? "overview" : "analytics";
+              setDashboardView(nextView);
+              setActiveTab(nextView);
+            }}
+            className="gap-1.5 text-xs font-medium h-8.5 px-3 border-black/[0.08] bg-white hover:bg-neutral-50 text-[#1D1D1F] transition-colors rounded-lg shadow-none"
           >
-            <BarChart3 className={`h-4 w-4 ${dashboardView === "analytics" ? "text-white" : "text-[#0071E3]"}`} />
-            {dashboardView === "analytics" ? "Back to Overview" : "Show Analytics & Charts"}
+            <BarChart3 className="h-3.5 w-3.5 text-[#86868B]" />
+            {dashboardView === "analytics" ? "Overview" : "Analytics"}
           </Button>
 
-          {/* Email Announcement */}
           <Button
             variant="outline"
             size="sm"
             onClick={() => setAnnouncementModalOpen(true)}
-            className="gap-1.5 text-xs font-medium h-9 border-black/[0.12] hover:bg-neutral-50"
+            className="gap-1.5 text-xs font-medium h-8.5 px-3 border-black/[0.08] bg-white hover:bg-neutral-50 text-[#1D1D1F] transition-colors rounded-lg shadow-none"
           >
-            <Mail className="h-4 w-4 text-[#0071E3]" /> Broadcast Email
+            <Mail className="h-3.5 w-3.5 text-[#86868B]" /> Broadcast Email
           </Button>
 
-          {/* Email Logs */}
           <Button
             variant="outline"
             size="sm"
             onClick={handleOpenEmailLogs}
-            className="gap-1.5 text-xs font-medium h-9 border-black/[0.12] hover:bg-neutral-50"
+            className="gap-1.5 text-xs font-medium h-8.5 px-3 border-black/[0.08] bg-white hover:bg-neutral-50 text-[#1D1D1F] transition-colors rounded-lg shadow-none"
           >
-            <History className="h-4 w-4 text-[#86868B]" /> Email Logs
+            <History className="h-3.5 w-3.5 text-[#86868B]" /> Email Logs
           </Button>
 
-          {/* Quick Exports */}
           <Button
             variant="outline"
             size="sm"
             onClick={() => handleExportStudents("csv")}
             disabled={isExportingCsv}
-            className="gap-1.5 text-xs font-medium h-9 border-black/[0.12] hover:bg-neutral-50"
+            className="gap-1.5 text-xs font-medium h-8.5 px-3 border-black/[0.08] bg-white hover:bg-neutral-50 text-[#1D1D1F] transition-colors rounded-lg shadow-none"
           >
-            <Download className="h-4 w-4 text-[#34C759]" />
+            <Download className="h-3.5 w-3.5 text-[#86868B]" />
             {isExportingCsv ? "Exporting..." : "Export CSV"}
           </Button>
 
@@ -326,64 +317,70 @@ export default function TPODashboardPage() {
             size="sm"
             onClick={() => handleExportStudents("xlsx")}
             disabled={isExportingXlsx}
-            className="gap-1.5 text-xs font-medium h-9 border-black/[0.12] hover:bg-neutral-50"
+            className="gap-1.5 text-xs font-medium h-8.5 px-3 border-black/[0.08] bg-white hover:bg-neutral-50 text-[#1D1D1F] transition-colors rounded-lg shadow-none"
           >
-            <FileSpreadsheet className="h-4 w-4 text-[#0071E3]" />
+            <FileSpreadsheet className="h-3.5 w-3.5 text-[#86868B]" />
             {isExportingXlsx ? "Exporting..." : "Export Excel"}
           </Button>
 
-          {/* Company-wise Selections Excel */}
           <Button
             variant="outline"
             size="sm"
             onClick={() => handleExportCompanyWise()}
             disabled={isExportingCompanyXlsx}
-            className="gap-1.5 text-xs font-medium h-9 border-black/[0.12] hover:bg-neutral-50"
+            className="gap-1.5 text-xs font-medium h-8.5 px-3 border-black/[0.08] bg-white hover:bg-neutral-50 text-[#1D1D1F] transition-colors rounded-lg shadow-none"
           >
-            <Building2 className="h-4 w-4 text-[#5856D6]" />
-            {isExportingCompanyXlsx ? "Exporting..." : "Company Selections Excel"}
+            <Building2 className="h-3.5 w-3.5 text-[#86868B]" />
+            {isExportingCompanyXlsx ? "Exporting..." : "Company Selections"}
           </Button>
 
-          {/* Create Drive */}
+          {/* Primary Action: Standout New Drive */}
           <Link href="/tpo/drives?create=true">
-            <Button variant="primary" size="sm" className="gap-1.5 text-xs font-medium h-9 shadow-sm">
-              <PlusCircle className="h-4 w-4" /> New Drive
+            <Button
+              variant="primary"
+              size="sm"
+              className="gap-1.5 text-xs font-medium h-8.5 px-3.5 rounded-lg bg-[#0071E3] text-white hover:bg-[#0071E3]/90 shadow-xs"
+            >
+              <PlusCircle className="h-3.5 w-3.5" /> New Drive
             </Button>
           </Link>
         </div>
       </div>
 
-      {/* View Switcher: Dashboard Overview vs Visual Analytics */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-2 rounded-2xl border border-black/[0.06] shadow-2xs">
-        <div className="flex items-center gap-1.5 p-1 rounded-xl bg-black/[0.04] w-fit">
-          <button
-            onClick={() => setDashboardView("overview")}
-            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-              dashboardView === "overview"
-                ? "bg-white text-[#1D1D1F] shadow-xs"
-                : "text-[#86868B] hover:text-[#1D1D1F]"
-            }`}
-          >
-            <LayoutDashboard className="h-3.5 w-3.5" />
-            Dashboard Overview
-          </button>
-          <button
-            onClick={() => setDashboardView("analytics")}
-            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-              dashboardView === "analytics"
-                ? "bg-[#0071E3] text-white shadow-xs"
-                : "text-[#86868B] hover:text-[#1D1D1F]"
-            }`}
-          >
-            <PieChart className="h-3.5 w-3.5" />
-            Visual Analytics & Charts
-            <span className="flex h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-          </button>
-        </div>
-
-        <div className="text-[11px] text-[#86868B] px-2 flex items-center gap-1">
-          <span>LDCE Placement Cell</span> • <span>Real-time Live Sync</span>
-        </div>
+      {/* Clean Compact Navigation Tabs */}
+      <div className="border-b border-black/[0.08]">
+        <nav className="flex items-center gap-1 sm:gap-6 -mb-px overflow-x-auto no-scrollbar" aria-label="Dashboard Views">
+          {[
+            { id: "overview" as const, label: "Overview" },
+            { id: "students" as const, label: "Students" },
+            { id: "companies" as const, label: "Companies" },
+            { id: "drives" as const, label: "Drives" },
+            { id: "applications" as const, label: "Applications" },
+            { id: "analytics" as const, label: "Analytics" },
+          ].map((tab) => {
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => {
+                  setActiveTab(tab.id);
+                  if (tab.id === "analytics") {
+                    setDashboardView("analytics");
+                  } else {
+                    setDashboardView("overview");
+                  }
+                }}
+                className={`py-2.5 px-3 text-xs sm:text-sm font-medium transition-colors border-b-2 whitespace-nowrap ${
+                  isActive
+                    ? "border-[#0071E3] text-[#0071E3] font-semibold"
+                    : "border-transparent text-[#86868B] hover:text-[#1D1D1F] hover:border-black/[0.12]"
+                }`}
+              >
+                {tab.label}
+              </button>
+            );
+          })}
+        </nav>
       </div>
 
       {errorMessage && (
