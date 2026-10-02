@@ -975,28 +975,40 @@ export default function TPODashboardPage() {
                 </div>
               ) : (
                 <div className="divide-y divide-black/[0.06] text-xs">
-                  {emailLogs.map((log) => (
-                    <div key={log.id} className="py-3 px-1 flex items-start justify-between gap-4">
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <span className="font-semibold text-[#1D1D1F]">{log.recipientEmail}</span>
-                          <Badge
-                            variant={log.status === "SENT" ? "success" : "destructive"}
-                            className="text-[10px] py-0 px-2"
-                          >
-                            {log.status}
-                          </Badge>
+                  {emailLogs.map((log) => {
+                    const recipient = log.recipientEmail || (log as any).toEmail || "Student";
+                    const errorTxt = log.errorMessage || (log as any).error;
+                    const rawDate = log.createdAt || (log as any).sentAt;
+                    let dateStr = "Recently";
+                    if (rawDate) {
+                      const d = new Date(rawDate);
+                      if (!isNaN(d.getTime())) {
+                        dateStr = `${d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })} ${d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+                      }
+                    }
+                    return (
+                      <div key={log.id} className="py-3 px-1 flex items-start justify-between gap-4">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold text-[#1D1D1F]">{recipient}</span>
+                            <Badge
+                              variant={log.status === "SENT" ? "success" : "destructive"}
+                              className="text-[10px] py-0 px-2"
+                            >
+                              {log.status}
+                            </Badge>
+                          </div>
+                          <p className="text-xs text-[#1D1D1F]">{log.subject}</p>
+                          {errorTxt && (
+                            <p className="text-[10px] text-[#FF3B30] font-medium">{errorTxt}</p>
+                          )}
                         </div>
-                        <p className="text-xs text-[#1D1D1F]">{log.subject}</p>
-                        {log.errorMessage && (
-                          <p className="text-[10px] text-[#FF3B30] font-medium">{log.errorMessage}</p>
-                        )}
+                        <span className="text-[11px] text-[#86868B] whitespace-nowrap">
+                          {dateStr}
+                        </span>
                       </div>
-                      <span className="text-[11px] text-[#86868B] whitespace-nowrap">
-                        {new Date(log.createdAt).toLocaleDateString()} {new Date(log.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </span>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>

@@ -33,6 +33,10 @@ import {
   Upload,
   ChevronLeft,
   ChevronRight,
+  Clock,
+  Sparkles,
+  Search,
+  Power,
 } from "lucide-react";
 
 import { ENGINEERING_BRANCHES, BranchCode } from "@/config/constants";
@@ -153,32 +157,20 @@ export default function TPODrivesPage() {
     }
   };
 
-  const [currentDrivePage, setCurrentDrivePage] = useState(1);
-  const [totalDrivePages, setTotalDrivePages] = useState(1);
-  const [totalDrives, setTotalDrives] = useState(0);
-  const drivePageSize = 9;
+  const [selectedTab, setSelectedTab] = useState<"ALL" | "ACTIVE" | "CLOSED">("ALL");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [togglingDriveId, setTogglingDriveId] = useState<string | null>(null);
 
-  const fetchDrives = async (pageToFetch = currentDrivePage) => {
+  const fetchDrives = async () => {
     try {
       setIsLoading(true);
       const res = await driveService.getDrives({
-        page: pageToFetch,
-        limit: drivePageSize,
+        limit: 100,
       });
       if (res.data?.data) {
         setDrives(res.data.data);
-        const pagination = (res.data as any).pagination;
-        if (pagination) {
-          setCurrentDrivePage(pagination.page);
-          setTotalDrivePages(pagination.totalPages || 1);
-          setTotalDrives(pagination.total || 0);
-        } else {
-          setTotalDrives(res.data.data.length);
-        }
       } else {
         setDrives([]);
-        setTotalDrives(0);
-        setTotalDrivePages(1);
       }
     } catch (err: unknown) {
       setErrorMessage((err as Error)?.message || "Failed to fetch recruitment drives");
@@ -187,20 +179,32 @@ export default function TPODrivesPage() {
     }
   };
 
-  const handleDrivePageChange = (newPage: number) => {
-    if (newPage >= 1 && newPage <= totalDrivePages && newPage !== currentDrivePage) {
-      setCurrentDrivePage(newPage);
-      fetchDrives(newPage);
+  const handleToggleDriveStatus = async (drive: RecruitmentDrive) => {
+    const nextStatus = drive.status === "ACTIVE" ? "CLOSED" : "ACTIVE";
+    try {
+      setTogglingDriveId(drive.id);
+      await driveService.updateDrive(drive.id, { status: nextStatus });
+      toast.success(`Drive status changed to ${nextStatus}`);
+      fetchDrives();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to update drive status");
+    } finally {
+      setTogglingDriveId(null);
     }
   };
 
-  const handleNotifyDrive = async (driveId: string) => {
+  const handleNotifyDrive = async (driveId: string, target: "APPLICANTS" | "ELIGIBLE" = "APPLICANTS") => {
     try {
       setNotifyingDriveId(driveId);
-      const res = await tpoService.notifyDriveApplicants(driveId);
-      toast.success(res.data?.message || "Eligible students have been notified via email!");
+      const res = await tpoService.notifyDriveApplicants(driveId, { target });
+      toast.success(
+        res.data?.message ||
+          (target === "APPLICANTS"
+            ? "Applicants notified via email!"
+            : "Eligible students invited via email!")
+      );
     } catch (err: unknown) {
-      toast.error((err as Error)?.message || "Failed to send drive notifications");
+      toast.error((err as Error)?.message || "Failed to send notifications");
     } finally {
       setNotifyingDriveId(null);
     }
@@ -242,9 +246,18 @@ export default function TPODrivesPage() {
     try {
       setStatusUpdatingId(applicationId);
       await tpoService.updateApplicationStatus(applicationId, status);
-      // Refresh local list
+      // Refresh local list — if moved beyond APPLIED, default attendance is present
       setDriveApplicants((prev) =>
-        prev.map((app) => (app.id === applicationId ? { ...app, status } : app))
+        prev.map((app) =>
+          app.id === applicationId
+            ? {
+                ...app,
+                status,
+                isPresent: status !== "APPLIED" ? true : app.isPresent,
+                attendanceMarked: status !== "APPLIED" ? true : app.attendanceMarked,
+              }
+            : app
+        )
       );
       toast.success(`Application status updated to ${status}`);
     } catch (err: unknown) {
@@ -371,6 +384,28 @@ export default function TPODrivesPage() {
     }
   };
 
+  const activeDrives = drives.filter((d) => d.status !== "CLOSED");
+  const closedDrives = drives.filter((d) => d.status === "CLOSED");
+  const totalApplications = drives.reduce(
+    (sum, d) => sum + (d._count?.applications || 0),
+    0
+  );
+
+  const tabDrives =
+    selectedTab === "ACTIVE"
+      ? activeDrives
+      : selectedTab === "CLOSED"
+      ? closedDrives
+      : drives;
+
+  const query = searchQuery.trim().toLowerCase();
+  const filteredDrives = tabDrives.filter((d) => {
+    if (!query) return true;
+    const name = (d.company?.name || (d as any).companyName || "").toLowerCase();
+    const role = (d.role || (d as any).jobRole || "").toLowerCase();
+    return name.includes(query) || role.includes(query);
+  });
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -392,6 +427,166 @@ export default function TPODrivesPage() {
         </Button>
       </div>
 
+      {/* 3 Top Stat Widgets: Active Drives, Closed Drives, Total Applications */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        {/* Widget 1: Active Drives */}
+        <button
+          type="button"
+          onClick={() => setSelectedTab("ACTIVE")}
+          className={`text-left p-5 rounded-2xl border transition-all relative overflow-hidden group ${
+            selectedTab === "ACTIVE"
+              ? "bg-blue-50/70 border-blue-500 shadow-md ring-2 ring-blue-500/20"
+              : "bg-white border-slate-200 hover:border-slate-300 shadow-xs"
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+              Active Drives
+            </span>
+            <div
+              className={`p-2.5 rounded-xl ${
+                selectedTab === "ACTIVE" ? "bg-blue-600 text-white" : "bg-blue-50 text-blue-600"
+              }`}
+            >
+              <Sparkles className="h-5 w-5" />
+            </div>
+          </div>
+          <div className="mt-3">
+            <div className="text-3xl font-extrabold tracking-tight text-slate-900">
+              {activeDrives.length}
+            </div>
+            <p className="text-xs text-slate-500 mt-1">
+              Currently accepting student applications
+            </p>
+          </div>
+          {selectedTab === "ACTIVE" && (
+            <div className="absolute bottom-0 left-0 right-0 h-1 bg-blue-600" />
+          )}
+        </button>
+
+        {/* Widget 2: Past / Closed Drives */}
+        <button
+          type="button"
+          onClick={() => setSelectedTab("CLOSED")}
+          className={`text-left p-5 rounded-2xl border transition-all relative overflow-hidden group ${
+            selectedTab === "CLOSED"
+              ? "bg-slate-100 border-slate-500 shadow-md ring-2 ring-slate-400/20"
+              : "bg-white border-slate-200 hover:border-slate-300 shadow-xs"
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+              Past / Closed Drives
+            </span>
+            <div
+              className={`p-2.5 rounded-xl ${
+                selectedTab === "CLOSED" ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-700"
+              }`}
+            >
+              <Clock className="h-5 w-5" />
+            </div>
+          </div>
+          <div className="mt-3">
+            <div className="text-3xl font-extrabold tracking-tight text-slate-900">
+              {closedDrives.length}
+            </div>
+            <p className="text-xs text-slate-500 mt-1">
+              Concluded & archived recruitment drives
+            </p>
+          </div>
+          {selectedTab === "CLOSED" && (
+            <div className="absolute bottom-0 left-0 right-0 h-1 bg-slate-600" />
+          )}
+        </button>
+
+        {/* Widget 3: Total Applications */}
+        <button
+          type="button"
+          onClick={() => setSelectedTab("ALL")}
+          className={`text-left p-5 rounded-2xl border transition-all relative overflow-hidden group ${
+            selectedTab === "ALL"
+              ? "bg-emerald-50/70 border-emerald-500 shadow-md ring-2 ring-emerald-500/20"
+              : "bg-white border-slate-200 hover:border-slate-300 shadow-xs"
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+              Total Applications
+            </span>
+            <div
+              className={`p-2.5 rounded-xl ${
+                selectedTab === "ALL" ? "bg-emerald-600 text-white" : "bg-emerald-50 text-emerald-600"
+              }`}
+            >
+              <Users className="h-5 w-5" />
+            </div>
+          </div>
+          <div className="mt-3">
+            <div className="text-3xl font-extrabold tracking-tight text-slate-900">
+              {totalApplications}
+            </div>
+            <p className="text-xs text-slate-500 mt-1">
+              Received across all campus recruitment drives
+            </p>
+          </div>
+          {selectedTab === "ALL" && (
+            <div className="absolute bottom-0 left-0 right-0 h-1 bg-emerald-600" />
+          )}
+        </button>
+      </div>
+
+      {/* Segmented Filter Bar & Search */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-1">
+        <div className="inline-flex p-1 rounded-xl bg-slate-100 border border-slate-200 self-start sm:self-auto">
+          <button
+            type="button"
+            onClick={() => setSelectedTab("ALL")}
+            className={`px-4 py-2 rounded-lg text-xs font-semibold transition-all flex items-center gap-2 ${
+              selectedTab === "ALL"
+                ? "bg-white text-slate-900 shadow-xs"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            All Drives ({drives.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setSelectedTab("ACTIVE")}
+            className={`px-4 py-2 rounded-lg text-xs font-semibold transition-all flex items-center gap-2 ${
+              selectedTab === "ACTIVE"
+                ? "bg-white text-blue-600 shadow-xs"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            <Sparkles className="h-3.5 w-3.5" />
+            Active & Upcoming ({activeDrives.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setSelectedTab("CLOSED")}
+            className={`px-4 py-2 rounded-lg text-xs font-semibold transition-all flex items-center gap-2 ${
+              selectedTab === "CLOSED"
+                ? "bg-white text-slate-800 shadow-xs"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            <Clock className="h-3.5 w-3.5" />
+            Past & Closed ({closedDrives.length})
+          </button>
+        </div>
+
+        <div className="relative min-w-[240px]">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+          <input
+            type="text"
+            placeholder="Search company or role..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-9 pr-3.5 py-2 text-xs rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+          />
+        </div>
+      </div>
+
       {errorMessage && (
         <div className="flex items-center gap-2 rounded-xl bg-red-50 p-4 text-xs font-semibold text-red-600 border border-red-200">
           <AlertCircle className="h-4 w-4 flex-shrink-0" />
@@ -404,24 +599,30 @@ export default function TPODrivesPage() {
         <div className="p-12 text-center text-xs text-slate-500 font-medium">
           Loading placement drives...
         </div>
-      ) : drives.length === 0 ? (
+      ) : filteredDrives.length === 0 ? (
         <Card className="border border-slate-200 bg-white p-12 text-center space-y-3">
           <Building2 className="mx-auto h-12 w-12 text-slate-300" />
-          <h3 className="text-sm font-bold text-slate-800">No Active Drives Yet</h3>
+          <h3 className="text-sm font-bold text-slate-800">
+            {searchQuery ? "No matching drives found" : "No Drives in this Category"}
+          </h3>
           <p className="text-xs text-slate-500 max-w-sm mx-auto">
-            Click &quot;Create New Drive&quot; to add your first campus recruitment opportunity.
+            {searchQuery
+              ? "Try adjusting your search criteria."
+              : "Click \"Create New Drive\" to add a campus recruitment opportunity."}
           </p>
-          <Button
-            variant="primary"
-            onClick={() => setModalOpen(true)}
-            className="mt-2 text-xs font-semibold gap-2"
-          >
-            <PlusCircle className="h-4 w-4" /> Create Drive
-          </Button>
+          {!searchQuery && (
+            <Button
+              variant="primary"
+              onClick={() => setModalOpen(true)}
+              className="mt-2 text-xs font-semibold gap-2"
+            >
+              <PlusCircle className="h-4 w-4" /> Create Drive
+            </Button>
+          )}
         </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {drives.map((drive) => {
+          {filteredDrives.map((drive) => {
             const companyTitle = drive.company?.name || (drive as any).companyName || "Unknown Company";
             const jobTitle = drive.role || (drive as any).jobRole || "Job Role";
             const ctcDisplay = drive.ctcMax
@@ -438,6 +639,7 @@ export default function TPODrivesPage() {
             const companyLogo = drive.company?.imageUrl || (drive as any).companyLogo;
             const brochureMatch = (drive.description || "").match(/Brochure:\s*(https?:\/\/[^\s]+)/i);
             const brochureUrl = (drive as any).brochureUrl || (brochureMatch ? brochureMatch[1] : null);
+            const applicantCount = drive._count?.applications ?? 0;
 
             return (
               <Card key={drive.id} className="border border-slate-200 bg-white shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between">
@@ -462,9 +664,15 @@ export default function TPODrivesPage() {
                         )}
                       </div>
                     </div>
-                    <Badge variant={drive.status === "ACTIVE" ? "success" : "secondary"}>
-                      {drive.status || "ACTIVE"}
-                    </Badge>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                        <Users className="h-3 w-3" />
+                        {applicantCount}
+                      </span>
+                      <Badge variant={drive.status === "ACTIVE" ? "success" : "secondary"}>
+                        {drive.status || "ACTIVE"}
+                      </Badge>
+                    </div>
                   </div>
                 </CardHeader>
 
@@ -514,13 +722,17 @@ export default function TPODrivesPage() {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => handleNotifyDrive(drive.id)}
+                      onClick={() => handleNotifyDrive(drive.id, applicantCount > 0 ? "APPLICANTS" : "ELIGIBLE")}
                       disabled={notifyingDriveId === drive.id}
                       className="h-7 text-[11px] px-2 gap-1 border-slate-200 text-blue-600 hover:bg-blue-50"
-                      title="Send email notification to all eligible students"
+                      title={applicantCount > 0 ? `Send email to ${applicantCount} applicants` : "Invite eligible candidates"}
                     >
                       <Mail className="h-3.5 w-3.5" />
-                      {notifyingDriveId === drive.id ? "Sending..." : "Notify"}
+                      {notifyingDriveId === drive.id
+                        ? "Sending..."
+                        : applicantCount > 0
+                        ? `Notify (${applicantCount})`
+                        : "Invite"}
                     </Button>
 
                     <Button
@@ -546,6 +758,22 @@ export default function TPODrivesPage() {
                       <FileSpreadsheet className="h-3.5 w-3.5" />
                       {exportingDriveId === `${drive.id}-xlsx` ? "..." : "XLSX"}
                     </Button>
+
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleToggleDriveStatus(drive)}
+                      disabled={togglingDriveId === drive.id}
+                      className={`h-7 text-[11px] px-2 gap-1 border-slate-200 ${
+                        drive.status === "ACTIVE"
+                          ? "text-amber-700 hover:bg-amber-50"
+                          : "text-emerald-700 hover:bg-emerald-50"
+                      }`}
+                      title={drive.status === "ACTIVE" ? "Mark drive as CLOSED" : "Reopen drive as ACTIVE"}
+                    >
+                      <Power className="h-3.5 w-3.5" />
+                      {drive.status === "ACTIVE" ? "Close" : "Reopen"}
+                    </Button>
                   </div>
 
                   <Button
@@ -560,64 +788,6 @@ export default function TPODrivesPage() {
               </Card>
             );
           })}
-        </div>
-      )}
-
-      {/* Drives Pagination Bar */}
-      {!isLoading && drives.length > 0 && totalDrivePages > 1 && (
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-6 py-4 rounded-2xl bg-white border border-slate-200 text-xs shadow-xs">
-          <span className="text-slate-500">
-            Showing <strong className="font-semibold text-slate-900">{(currentDrivePage - 1) * drivePageSize + 1}</strong> to{" "}
-            <strong className="font-semibold text-slate-900">
-              {Math.min(currentDrivePage * drivePageSize, totalDrives)}
-            </strong>{" "}
-            of <strong className="font-semibold text-slate-900">{totalDrives}</strong> recruitment drives
-          </span>
-
-          <div className="flex items-center gap-1.5">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handleDrivePageChange(currentDrivePage - 1)}
-              disabled={currentDrivePage <= 1 || isLoading}
-              className="h-8 px-2.5 text-xs gap-1 border-slate-200 hover:bg-slate-50 disabled:opacity-40"
-            >
-              <ChevronLeft className="h-3.5 w-3.5" /> Previous
-            </Button>
-
-            <div className="flex items-center gap-1 mx-1">
-              {Array.from({ length: totalDrivePages }, (_, i) => i + 1)
-                .filter((p) => p === 1 || p === totalDrivePages || Math.abs(p - currentDrivePage) <= 1)
-                .map((p, idx, arr) => (
-                  <React.Fragment key={p}>
-                    {idx > 0 && arr[idx - 1] !== p - 1 && (
-                      <span className="px-1 text-slate-400">...</span>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => handleDrivePageChange(p)}
-                      className={`h-8 min-w-[32px] px-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
-                        p === currentDrivePage
-                          ? "bg-blue-600 text-white shadow-xs"
-                          : "text-slate-700 hover:bg-slate-100"
-                      }`}
-                    >
-                      {p}
-                    </button>
-                  </React.Fragment>
-                ))}
-            </div>
-
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handleDrivePageChange(currentDrivePage + 1)}
-              disabled={currentDrivePage >= totalDrivePages || isLoading}
-              className="h-8 px-2.5 text-xs gap-1 border-slate-200 hover:bg-slate-50 disabled:opacity-40"
-            >
-              Next <ChevronRight className="h-3.5 w-3.5" />
-            </Button>
-          </div>
         </div>
       )}
 
@@ -981,6 +1151,16 @@ export default function TPODrivesPage() {
               </div>
 
               <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleNotifyDrive(activeDriveForApplicants.id, "APPLICANTS")}
+                  disabled={notifyingDriveId === activeDriveForApplicants.id}
+                  className="h-8 text-xs font-medium gap-1 text-blue-600 hover:bg-blue-50 border-slate-200"
+                >
+                  <Mail className="h-3.5 w-3.5" />
+                  {notifyingDriveId === activeDriveForApplicants.id ? "Sending..." : "Notify Applicants"}
+                </Button>
                 <Button
                   variant="outline"
                   size="sm"

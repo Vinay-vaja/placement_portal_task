@@ -7,7 +7,7 @@ import { getEligibleStudents } from "./eligibility.service.js";
 /**
  * Send drive notification emails to eligible students
  */
-export const sendDriveNotification = async (driveId, customMessage = "") => {
+export const sendDriveNotification = async (driveId, customMessage = "", target = "APPLICANTS") => {
   const drive = await prisma.recruitmentDrive.findUnique({
     where: { id: driveId },
     include: {
@@ -21,12 +21,26 @@ export const sendDriveNotification = async (driveId, customMessage = "") => {
     throw error;
   }
 
-  // Get eligible students for this drive
-  const eligibleStudents = await getEligibleStudents(drive);
+  // Get both candidate pools
+  const [eligibleStudents, applications] = await Promise.all([
+    getEligibleStudents(drive),
+    prisma.application.findMany({
+      where: { driveId },
+      include: {
+        student: {
+          include: { user: { select: { email: true } } },
+        },
+      },
+    }),
+  ]);
 
-  if (eligibleStudents.length === 0) {
-    return { sent: 0, message: "No eligible students found for this drive" };
-  }
+  const applicantCount = applications.length;
+  const eligibleCount = eligibleStudents.length;
+
+  // Determine recipients according to target
+  let recipients = [];
+  let subject = "";
+  let templateName = "DRIVE_NOTIFICATION";
 
   // Build CTC string
   const ctcStr =
@@ -45,13 +59,40 @@ export const sendDriveNotification = async (driveId, customMessage = "") => {
       })
     : "No deadline";
 
-  // Generate personalized emails
-  const recipients = eligibleStudents.map((student) => ({
-    email: student.user.email,
-    params: {
-      studentName: student.fullName,
-    },
-  }));
+  if (target === "ELIGIBLE") {
+    if (eligibleStudents.length === 0) {
+      return {
+        sent: 0,
+        failed: 0,
+        total: 0,
+        applicantCount,
+        eligibleCount: 0,
+        message: "No eligible students found for this drive",
+      };
+    }
+    recipients = eligibleStudents.map((student) => ({
+      email: student.user.email,
+      params: { studentName: student.fullName },
+    }));
+    subject = `New Recruitment Drive: ${drive.role} at ${drive.company.name}`;
+  } else {
+    // Default to APPLICANTS
+    if (applications.length === 0) {
+      return {
+        sent: 0,
+        failed: 0,
+        total: 0,
+        applicantCount: 0,
+        eligibleCount,
+        message: `No applicants have applied to this drive yet. (Total eligible candidates: ${eligibleCount})`,
+      };
+    }
+    recipients = applications.map((app) => ({
+      email: app.student.user.email,
+      params: { studentName: app.student.fullName },
+    }));
+    subject = `Recruitment Drive Notice: ${drive.role} at ${drive.company.name}`;
+  }
 
   const htmlContent = TEMPLATES.DRIVE_NOTIFICATION({
     studentName: "{{studentName}}",
@@ -60,11 +101,9 @@ export const sendDriveNotification = async (driveId, customMessage = "") => {
     ctc: ctcStr,
     location: drive.location,
     deadline: deadlineStr,
-    description: drive.description || customMessage,
+    description: customMessage || drive.description,
     portalUrl: config.clientUrl,
   });
-
-  const subject = `New Recruitment Drive: ${drive.role} at ${drive.company.name}`;
 
   const results = await sendBulkEmail(recipients, subject, htmlContent);
 
@@ -72,7 +111,7 @@ export const sendDriveNotification = async (driveId, customMessage = "") => {
   const emailLogs = results.map((r) => ({
     toEmail: r.email,
     subject,
-    templateName: "DRIVE_NOTIFICATION",
+    templateName,
     driveId,
     status: r.status === "SENT" ? "SENT" : "FAILED",
     error: r.error || null,
@@ -87,10 +126,13 @@ export const sendDriveNotification = async (driveId, customMessage = "") => {
     sent,
     failed,
     total: results.length,
+    applicantCount,
+    eligibleCount,
+    target,
     message:
       sent > 0
-        ? `Sent ${sent} emails successfully${failed > 0 ? `, ${failed} failed` : ""}`
-        : `Drive notifications recorded for ${results.length} eligible students. (${results[0]?.error || "Delivery recorded in logs"})`,
+        ? `Sent ${sent} emails successfully to ${target === "ELIGIBLE" ? "eligible candidates" : "applicants"} (Applicants: ${applicantCount}, Eligible: ${eligibleCount})`
+        : `Drive notifications recorded for ${results.length} ${target === "ELIGIBLE" ? "eligible candidates" : "applicants"}. (${results[0]?.error || "Recorded in logs"})`,
   };
 };
 
@@ -109,20 +151,20 @@ export const sendCustomAnnouncement = async ({
     isDismissed: false,
   };
 
-  if (filters.profileLocked !== undefined) {
+  if (filters.profileLocked !== undefined && filters.profileLocked !== "" && filters.profileLocked !== "ALL") {
     where.profileLocked = filters.profileLocked === "true" || filters.profileLocked === true;
   }
-  if (filters.branch) {
+  if (filters.branch && filters.branch !== "ALL" && filters.branch !== "") {
     const branches = filters.branch.split(",").map((b) => b.trim().toUpperCase());
     where.branch = { in: branches };
   }
-  if (filters.studentType) {
+  if (filters.studentType && filters.studentType !== "ALL" && filters.studentType !== "") {
     where.studentType = filters.studentType;
   }
-  if (filters.verificationStatus) {
+  if (filters.verificationStatus && filters.verificationStatus !== "ALL" && filters.verificationStatus !== "") {
     where.verificationStatus = filters.verificationStatus;
   }
-  if (filters.isPlaced !== undefined) {
+  if (filters.isPlaced !== undefined && filters.isPlaced !== "" && filters.isPlaced !== "ALL") {
     where.isPlaced = filters.isPlaced === "true" || filters.isPlaced === true;
   }
 
@@ -137,15 +179,28 @@ export const sendCustomAnnouncement = async ({
     return { sent: 0, message: "No students match the filter criteria" };
   }
 
+  // Resolve valid sentById
+  let actualSentById = sentById;
+  if (!actualSentById) {
+    const adminUser = await prisma.user.findFirst({
+      where: { role: "CENTRAL_TPO" },
+      select: { id: true },
+    });
+    actualSentById = adminUser?.id;
+  }
+
   // Save announcement
-  const announcement = await prisma.announcement.create({
-    data: {
-      title,
-      body,
-      driveId: driveId || null,
-      sentById,
-    },
-  });
+  let announcement = null;
+  if (actualSentById) {
+    announcement = await prisma.announcement.create({
+      data: {
+        title,
+        body,
+        driveId: driveId || null,
+        sentById: actualSentById,
+      },
+    });
+  }
 
   // Get drive info if linked
   let driveInfo = null;
@@ -178,7 +233,7 @@ export const sendCustomAnnouncement = async ({
 
   const results = await sendBulkEmail(recipients, subject, htmlContent);
 
-  // Log sent emails
+  // Log all sent emails
   const emailLogs = results.map((r) => ({
     toEmail: r.email,
     subject,
@@ -271,7 +326,7 @@ export const getEmailLogs = async (query = {}) => {
   if (query.driveId) where.driveId = query.driveId;
   if (query.status) where.status = query.status;
 
-  const [logs, total] = await Promise.all([
+  const [rawLogs, total] = await Promise.all([
     prisma.emailLog.findMany({
       where,
       orderBy: { sentAt: "desc" },
@@ -280,6 +335,13 @@ export const getEmailLogs = async (query = {}) => {
     }),
     prisma.emailLog.count({ where }),
   ]);
+
+  const logs = rawLogs.map((l) => ({
+    ...l,
+    recipientEmail: l.toEmail,
+    errorMessage: l.error,
+    createdAt: l.sentAt,
+  }));
 
   return { logs, total };
 };

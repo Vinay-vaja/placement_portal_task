@@ -169,9 +169,12 @@ export const getDashboard = async (req, res, next) => {
  */
 export const sendDriveNotification = async (req, res, next) => {
   try {
+    const customMessage = req.body?.customMessage || "";
+    const target = req.body?.target || req.query?.target || "APPLICANTS";
     const result = await emailService.sendDriveNotification(
       req.params.driveId,
-      req.body.customMessage
+      customMessage,
+      target
     );
     return sendSuccess(res, 200, result.message, result);
   } catch (error) {

@@ -145,21 +145,21 @@ export const getDrives = async (query = {}, userId = null, userRole = null) => {
   const { skip, take, page, limit } = parsePagination(query);
   const where = {};
 
-  if (query.status) {
+  if (query.status && query.status !== "ALL") {
     where.status = query.status;
-  } else if (userRole === "STUDENT") {
-    // By default, students only see active recruitment drives unless explicitly filtered
+  } else if (userRole === "STUDENT" && !query.status) {
+    // By default, students only see active recruitment drives unless explicitly requested
     where.status = "ACTIVE";
   }
   if (query.companyId) {
     where.companyId = query.companyId;
   }
-  if (query.allowedStudentType) {
+  if (query.allowedStudentType && query.allowedStudentType !== "ALL") {
     where.allowedStudentType = query.allowedStudentType;
   }
 
   // Filter by branches
-  if (query.branch) {
+  if (query.branch && query.branch !== "ALL") {
     const branches = query.branch.split(",").map((b) => b.trim().toUpperCase());
     where.allowedBranches = { hasSome: branches };
   }
@@ -176,13 +176,13 @@ export const getDrives = async (query = {}, userId = null, userRole = null) => {
       return buildPaginatedResponse([], 0, page, limit);
     }
 
-    // Exclude drives student has already applied to
+    // Exclude drives student has already applied to unless includeApplied is requested
     const studentApps = await prisma.application.findMany({
       where: { studentId: student.id },
       select: { driveId: true },
     });
     const appliedDriveIds = studentApps.map((a) => a.driveId);
-    if (appliedDriveIds.length > 0) {
+    if (query.includeApplied !== "true" && appliedDriveIds.length > 0) {
       where.id = { notIn: appliedDriveIds };
     }
 

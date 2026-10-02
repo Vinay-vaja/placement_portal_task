@@ -48,6 +48,9 @@ export interface RecruitmentDrive {
   tpoAllowMultiple?: boolean;
   
   status: DriveStatus;
+  _count?: {
+    applications: number;
+  };
   eligibility?: {
     eligible: boolean;
     reasons: string[];

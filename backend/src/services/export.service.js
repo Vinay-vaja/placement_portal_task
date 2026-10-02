@@ -12,18 +12,22 @@ export const exportStudents = async (filters = {}, format = "csv") => {
   // Build query (reuse same filter logic as student.service)
   const where = {};
 
-  if (filters.verificationStatus) where.verificationStatus = filters.verificationStatus;
-  if (filters.studentType) where.studentType = filters.studentType;
-  if (filters.profileLocked !== undefined) {
+  if (filters.verificationStatus && filters.verificationStatus !== "ALL" && filters.verificationStatus !== "") {
+    where.verificationStatus = filters.verificationStatus;
+  }
+  if (filters.studentType && filters.studentType !== "ALL" && filters.studentType !== "") {
+    where.studentType = filters.studentType;
+  }
+  if (filters.profileLocked !== undefined && filters.profileLocked !== "" && filters.profileLocked !== "ALL") {
     where.profileLocked = filters.profileLocked === "true" || filters.profileLocked === true;
   }
-  if (filters.isPlaced !== undefined) {
+  if (filters.isPlaced !== undefined && filters.isPlaced !== "" && filters.isPlaced !== "ALL") {
     where.isPlaced = filters.isPlaced === "true" || filters.isPlaced === true;
   }
-  if (filters.isDismissed !== undefined) {
+  if (filters.isDismissed !== undefined && filters.isDismissed !== "" && filters.isDismissed !== "ALL") {
     where.isDismissed = filters.isDismissed === "true" || filters.isDismissed === true;
   }
-  if (filters.branch) {
+  if (filters.branch && filters.branch !== "ALL" && filters.branch !== "") {
     const branches = filters.branch.split(",").map((b) => b.trim().toUpperCase());
     where.branch = { in: branches };
   }
@@ -31,13 +35,23 @@ export const exportStudents = async (filters = {}, format = "csv") => {
     where.tenthPercentage = { gte: parseFloat(filters.minTenth) };
   }
   if (filters.minTwelfth) {
-    where.twelfthPercentage = { gte: parseFloat(filters.minTwelfth) };
-  }
-  if (filters.search) {
+    const minVal = parseFloat(filters.minTwelfth);
     where.OR = [
-      { fullName: { contains: filters.search, mode: "insensitive" } },
-      { user: { email: { contains: filters.search, mode: "insensitive" } } },
+      { twelfthPercentage: { gte: minVal } },
+      { studentType: "D2D" },
     ];
+  }
+  if (filters.search && filters.search.trim()) {
+    const searchFilter = [
+      { fullName: { contains: filters.search.trim(), mode: "insensitive" } },
+      { user: { email: { contains: filters.search.trim(), mode: "insensitive" } } },
+    ];
+    if (where.OR) {
+      where.AND = [{ OR: where.OR }, { OR: searchFilter }];
+      delete where.OR;
+    } else {
+      where.OR = searchFilter;
+    }
   }
 
   const students = await prisma.student.findMany({

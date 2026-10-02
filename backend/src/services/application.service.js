@@ -304,11 +304,17 @@ export const updateApplicationStatus = async (applicationId, status) => {
     throw error;
   }
 
+  const appUpdateData = { status };
+  if (status !== "APPLIED") {
+    // When an applicant moves to any next round/stage, default attendance to Present
+    appUpdateData.isPresent = true;
+  }
+
   // If status is SELECTED, also update student's placement tracking
   const updateOperations = [
     prisma.application.update({
       where: { id: applicationId },
-      data: { status },
+      data: appUpdateData,
       include: {
         student: {
           select: {

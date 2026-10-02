@@ -4,7 +4,7 @@ import React, { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import { driveService } from "@/services/drive.service";
 import { studentService } from "@/services/student.service";
-import { RecruitmentDrive, StudentProfile } from "@/types";
+import { RecruitmentDrive, StudentProfile, Application } from "@/types";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -21,6 +21,13 @@ import {
   X,
   Lock,
   ExternalLink,
+  Clock,
+  Sparkles,
+  Layers,
+  Search,
+  Award,
+  Check,
+  UserCheck,
 } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -362,7 +369,10 @@ function DriveDetailsModal({
 
 export default function StudentDrivesPage() {
   const [drives, setDrives] = useState<RecruitmentDrive[]>([]);
+  const [applications, setApplications] = useState<Application[]>([]);
   const [studentProfile, setStudentProfile] = useState<StudentProfile | null>(null);
+  const [activeTab, setActiveTab] = useState<"upcoming" | "applied" | "past">("upcoming");
+  const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -378,9 +388,10 @@ export default function StudentDrivesPage() {
   const fetchDrivesAndProfile = async () => {
     try {
       setIsLoading(true);
-      const [drivesRes, profileRes] = await Promise.allSettled([
-        driveService.getDrives(),
+      const [drivesRes, profileRes, appsRes] = await Promise.allSettled([
+        driveService.getDrives({ status: "ALL", includeApplied: "true" } as any),
         studentService.getProfile(),
+        studentService.getApplications(),
       ]);
 
       if (drivesRes.status === "fulfilled" && drivesRes.value?.data?.data) {
@@ -392,8 +403,21 @@ export default function StudentDrivesPage() {
       if (profileRes.status === "fulfilled" && profileRes.value?.data) {
         setStudentProfile(profileRes.value.data);
       }
+
+      if (appsRes.status === "fulfilled") {
+        const raw = appsRes.value?.data as any;
+        if (Array.isArray(raw)) {
+          setApplications(raw);
+        } else if (raw?.data && Array.isArray(raw.data)) {
+          setApplications(raw.data);
+        } else {
+          setApplications([]);
+        }
+      } else {
+        setApplications([]);
+      }
     } catch (err: unknown) {
-      setErrorMessage((err as Error)?.message || "Failed to load active placement drives");
+      setErrorMessage((err as Error)?.message || "Failed to load placement drives");
     } finally {
       setIsLoading(false);
     }
@@ -404,6 +428,44 @@ export default function StudentDrivesPage() {
   }, []);
 
   const isVerified = studentProfile?.verificationStatus === "VERIFIED";
+
+  // Applied drive IDs set
+  const appliedDriveIds = new Set(applications.map((a) => a.driveId));
+
+  // Upcoming / Open drives: active drives that student has NOT applied to yet
+  const upcomingDrives = drives.filter(
+    (d) => d.status !== "CLOSED" && !appliedDriveIds.has(d.id)
+  );
+
+  // Past / Closed drives: closed drives (or where deadline passed) that student hasn't applied to
+  const pastDrives = drives.filter(
+    (d) => d.status === "CLOSED" && !appliedDriveIds.has(d.id)
+  );
+
+  // Search filtering
+  const query = searchQuery.trim().toLowerCase();
+
+  const filteredUpcoming = upcomingDrives.filter((d) => {
+    if (!query) return true;
+    const name = (d.company?.name || (d as any).companyName || "").toLowerCase();
+    const role = (d.role || (d as any).jobRole || "").toLowerCase();
+    return name.includes(query) || role.includes(query);
+  });
+
+  const filteredApplied = applications.filter((app) => {
+    if (!query) return true;
+    const d = app.drive;
+    const name = (d?.company?.name || (d as any)?.companyName || "").toLowerCase();
+    const role = (d?.role || (d as any)?.jobRole || "").toLowerCase();
+    return name.includes(query) || role.includes(query);
+  });
+
+  const filteredPast = pastDrives.filter((d) => {
+    if (!query) return true;
+    const name = (d.company?.name || (d as any).companyName || "").toLowerCase();
+    const role = (d.role || (d as any).jobRole || "").toLowerCase();
+    return name.includes(query) || role.includes(query);
+  });
 
   const openApplyModal = (driveId: string) => {
     const targetDrive = drives.find((d) => d.id === driveId);
@@ -469,18 +531,16 @@ export default function StudentDrivesPage() {
     }
   };
 
-  const eligibleDrivesCount = drives.filter((d) => d.eligibility?.eligible !== false).length;
-
   return (
     <div className="space-y-6 max-w-6xl mx-auto py-4 px-2 sm:px-4">
       {/* Header Banner */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 rounded-3xl bg-white border border-black/[0.08] p-6 sm:p-8 shadow-[0_4px_24px_rgba(0,0,0,0.03)]">
         <div className="space-y-1">
           <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-[#1D1D1F]">
-            Upcoming Recruitment Drives
+            Campus Placement Drives
           </h1>
           <p className="text-xs sm:text-sm text-[#86868B]">
-            Explore campus placement opportunities, check CPI cutoffs, and apply directly.
+            Explore upcoming recruitment drives, track your applied drives, and review past drive history.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -498,8 +558,169 @@ export default function StudentDrivesPage() {
             </span>
           )}
           <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-[#0071E3]/10 text-[#0071E3] border border-[#0071E3]/20">
-            {eligibleDrivesCount} Eligible / {drives.length} Open Drives
+            {upcomingDrives.length} Open Drives
           </span>
+        </div>
+      </div>
+
+      {/* 3 Interactive Stat Widgets: Upcoming Drives, Applied Drives, Past Drives */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        {/* Widget 1: Upcoming Drives */}
+        <button
+          type="button"
+          onClick={() => setActiveTab("upcoming")}
+          className={`text-left p-5 rounded-3xl border transition-all relative overflow-hidden group ${
+            activeTab === "upcoming"
+              ? "bg-[#0071E3]/5 border-[#0071E3] shadow-md ring-2 ring-[#0071E3]/20"
+              : "bg-white border-black/[0.08] hover:border-black/[0.15] shadow-xs"
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-[#86868B] uppercase tracking-wider">
+              Upcoming Drives
+            </span>
+            <div
+              className={`p-2.5 rounded-2xl ${
+                activeTab === "upcoming" ? "bg-[#0071E3] text-white" : "bg-[#0071E3]/10 text-[#0071E3]"
+              }`}
+            >
+              <Sparkles className="h-5 w-5" />
+            </div>
+          </div>
+          <div className="mt-3">
+            <div className="text-3xl font-bold tracking-tight text-[#1D1D1F]">
+              {upcomingDrives.length}
+            </div>
+            <p className="text-xs text-[#86868B] mt-1">
+              Active campus drives available to apply
+            </p>
+          </div>
+          {activeTab === "upcoming" && (
+            <div className="absolute bottom-0 left-0 right-0 h-1 bg-[#0071E3]" />
+          )}
+        </button>
+
+        {/* Widget 2: Applied Drives */}
+        <button
+          type="button"
+          onClick={() => setActiveTab("applied")}
+          className={`text-left p-5 rounded-3xl border transition-all relative overflow-hidden group ${
+            activeTab === "applied"
+              ? "bg-[#34C759]/5 border-[#34C759] shadow-md ring-2 ring-[#34C759]/20"
+              : "bg-white border-black/[0.08] hover:border-black/[0.15] shadow-xs"
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-[#86868B] uppercase tracking-wider">
+              Applied Drives
+            </span>
+            <div
+              className={`p-2.5 rounded-2xl ${
+                activeTab === "applied" ? "bg-[#34C759] text-white" : "bg-[#34C759]/10 text-[#34C759]"
+              }`}
+            >
+              <Send className="h-5 w-5" />
+            </div>
+          </div>
+          <div className="mt-3">
+            <div className="text-3xl font-bold tracking-tight text-[#1D1D1F]">
+              {applications.length}
+            </div>
+            <p className="text-xs text-[#86868B] mt-1">
+              Submitted applications & live stages
+            </p>
+          </div>
+          {activeTab === "applied" && (
+            <div className="absolute bottom-0 left-0 right-0 h-1 bg-[#34C759]" />
+          )}
+        </button>
+
+        {/* Widget 3: Past Drives */}
+        <button
+          type="button"
+          onClick={() => setActiveTab("past")}
+          className={`text-left p-5 rounded-3xl border transition-all relative overflow-hidden group ${
+            activeTab === "past"
+              ? "bg-slate-100 border-slate-500 shadow-md ring-2 ring-slate-400/20"
+              : "bg-white border-black/[0.08] hover:border-black/[0.15] shadow-xs"
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-[#86868B] uppercase tracking-wider">
+              Past Drives
+            </span>
+            <div
+              className={`p-2.5 rounded-2xl ${
+                activeTab === "past" ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-700"
+              }`}
+            >
+              <Clock className="h-5 w-5" />
+            </div>
+          </div>
+          <div className="mt-3">
+            <div className="text-3xl font-bold tracking-tight text-[#1D1D1F]">
+              {pastDrives.length}
+            </div>
+            <p className="text-xs text-[#86868B] mt-1">
+              Closed & completed placement drives
+            </p>
+          </div>
+          {activeTab === "past" && (
+            <div className="absolute bottom-0 left-0 right-0 h-1 bg-slate-600" />
+          )}
+        </button>
+      </div>
+
+      {/* Segmented Filter Bar & Search */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-1">
+        <div className="inline-flex p-1 rounded-2xl bg-[#F5F5F7] border border-black/[0.06] self-start sm:self-auto">
+          <button
+            type="button"
+            onClick={() => setActiveTab("upcoming")}
+            className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all flex items-center gap-2 ${
+              activeTab === "upcoming"
+                ? "bg-white text-[#1D1D1F] shadow-xs"
+                : "text-[#86868B] hover:text-[#1D1D1F]"
+            }`}
+          >
+            <Sparkles className="h-3.5 w-3.5" />
+            Upcoming Drives ({upcomingDrives.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("applied")}
+            className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all flex items-center gap-2 ${
+              activeTab === "applied"
+                ? "bg-white text-[#1D1D1F] shadow-xs"
+                : "text-[#86868B] hover:text-[#1D1D1F]"
+            }`}
+          >
+            <Send className="h-3.5 w-3.5" />
+            Applied Drives ({applications.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("past")}
+            className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all flex items-center gap-2 ${
+              activeTab === "past"
+                ? "bg-white text-[#1D1D1F] shadow-xs"
+                : "text-[#86868B] hover:text-[#1D1D1F]"
+            }`}
+          >
+            <Clock className="h-3.5 w-3.5" />
+            Past Drives ({pastDrives.length})
+          </button>
+        </div>
+
+        <div className="relative min-w-[240px]">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[#86868B]" />
+          <input
+            type="text"
+            placeholder="Search company or role..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-9 pr-3.5 py-2 text-xs rounded-2xl border border-black/[0.08] bg-white focus:outline-none focus:ring-2 focus:ring-[#0071E3]/20"
+          />
         </div>
       </div>
 
@@ -555,189 +776,409 @@ export default function StudentDrivesPage() {
         </div>
       )}
 
-      {/* Drives List */}
+      {/* Loading state */}
       {isLoading ? (
         <div className="p-12 text-center text-xs text-[#86868B]">
-          Loading recruitment drives...
+          Loading placement drives & applications...
         </div>
-      ) : drives.length === 0 ? (
-        <Card className="rounded-3xl border border-black/[0.08] bg-white p-12 text-center space-y-3 shadow-[0_2px_12px_rgba(0,0,0,0.03)]">
-          <Building2 className="mx-auto h-10 w-10 text-[#A1A1A6]" />
-          <h3 className="text-sm font-semibold text-[#1D1D1F]">No Open Drives Currently</h3>
-          <p className="text-xs text-[#86868B] max-w-sm mx-auto">
-            Check back later as new companies are added by the Central TPO team.
-          </p>
-        </Card>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {drives.map((drive) => {
-            const companyTitle = drive.company?.name || (drive as any).companyName || "Recruiting Company";
-            const jobTitle = drive.role || (drive as any).jobRole || "Engineering Role";
-            const ctcDisplay = drive.ctcMax
-              ? `₹${drive.ctc} - ${drive.ctcMax} LPA`
-              : drive.ctc
-              ? `₹${drive.ctc} LPA`
-              : (drive as any).ctcPackage || "Competitive";
-            const deadlineDisplay = drive.applicationDeadline
-              ? new Date(drive.applicationDeadline).toLocaleDateString()
-              : drive.deadline
-              ? new Date(drive.deadline).toLocaleDateString()
-              : "Open";
-            const branchesList = drive.allowedBranches || (drive as any).eligibleBranches || [];
-            const companyLogo = drive.company?.imageUrl || (drive as any).companyLogo;
-            const brochureMatch = (drive.description || "").match(/Brochure:\s*(https?:\/\/[^\s]+)/i);
-            const brochureUrl = (drive as any).brochureUrl || (brochureMatch ? brochureMatch[1] : null);
+      ) : null}
 
-            return (
-              <Card
-                key={drive.id}
-                className="rounded-3xl border border-black/[0.08] bg-white shadow-[0_2px_12px_rgba(0,0,0,0.03)] hover:shadow-[0_4px_20px_rgba(0,0,0,0.06)] transition-all flex flex-col justify-between"
-              >
-                <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-3">
-                      <CompanyLogo src={companyLogo} name={companyTitle} />
-                      <div className="min-w-0">
-                        <CardTitle className="text-base font-semibold text-[#1D1D1F] truncate">
-                          {companyTitle}
-                        </CardTitle>
-                        <p className="text-xs font-medium text-[#0071E3] truncate">{jobTitle}</p>
-                        {brochureUrl && (
-                          <a
-                            href={brochureUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 text-[11px] text-[#0071E3] hover:underline font-medium mt-0.5"
-                          >
-                            <ExternalLink className="h-3 w-3" /> Brochure
-                          </a>
-                        )}
+      {/* TAB 1: UPCOMING DRIVES */}
+      {!isLoading && activeTab === "upcoming" && (
+        filteredUpcoming.length === 0 ? (
+          <Card className="rounded-3xl border border-black/[0.08] bg-white p-12 text-center space-y-3 shadow-[0_2px_12px_rgba(0,0,0,0.03)]">
+            <Building2 className="mx-auto h-10 w-10 text-[#A1A1A6]" />
+            <h3 className="text-sm font-semibold text-[#1D1D1F]">
+              {searchQuery ? "No matching upcoming drives" : "No Open Drives Currently"}
+            </h3>
+            <p className="text-xs text-[#86868B] max-w-sm mx-auto">
+              {searchQuery
+                ? "Try clearing your search query to see all open drives."
+                : "Check back later as new companies are added by the Central TPO team."}
+            </p>
+          </Card>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            {filteredUpcoming.map((drive) => {
+              const companyTitle = drive.company?.name || (drive as any).companyName || "Recruiting Company";
+              const jobTitle = drive.role || (drive as any).jobRole || "Engineering Role";
+              const ctcDisplay = drive.ctcMax
+                ? `₹${drive.ctc} - ${drive.ctcMax} LPA`
+                : drive.ctc
+                ? `₹${drive.ctc} LPA`
+                : (drive as any).ctcPackage || "Competitive";
+              const deadlineDisplay = drive.applicationDeadline
+                ? new Date(drive.applicationDeadline).toLocaleDateString()
+                : drive.deadline
+                ? new Date(drive.deadline).toLocaleDateString()
+                : "Open";
+              const branchesList = drive.allowedBranches || (drive as any).eligibleBranches || [];
+              const companyLogo = drive.company?.imageUrl || (drive as any).companyLogo;
+              const brochureMatch = (drive.description || "").match(/Brochure:\s*(https?:\/\/[^\s]+)/i);
+              const brochureUrl = (drive as any).brochureUrl || (brochureMatch ? brochureMatch[1] : null);
+
+              return (
+                <Card
+                  key={drive.id}
+                  className="rounded-3xl border border-black/[0.08] bg-white shadow-[0_2px_12px_rgba(0,0,0,0.03)] hover:shadow-[0_4px_20px_rgba(0,0,0,0.06)] transition-all flex flex-col justify-between"
+                >
+                  <CardHeader className="pb-3">
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center gap-3">
+                        <CompanyLogo src={companyLogo} name={companyTitle} />
+                        <div className="min-w-0">
+                          <CardTitle className="text-base font-semibold text-[#1D1D1F] truncate">
+                            {companyTitle}
+                          </CardTitle>
+                          <p className="text-xs font-medium text-[#0071E3] truncate">{jobTitle}</p>
+                          {brochureUrl && (
+                            <a
+                              href={brochureUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 text-[11px] text-[#0071E3] hover:underline font-medium mt-0.5"
+                            >
+                              <ExternalLink className="h-3 w-3" /> Brochure
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {drive.eligibility ? (
+                          drive.eligibility.eligible ? (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                              ELIGIBLE
+                            </span>
+                          ) : (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-rose-50 text-rose-700 border border-rose-200">
+                              INELIGIBLE
+                            </span>
+                          )
+                        ) : null}
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-[#34C759]/10 text-[#28A745] border border-[#34C759]/20">
+                          OPEN
+                        </span>
                       </div>
                     </div>
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      {drive.eligibility ? (
-                        drive.eligibility.eligible ? (
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                            ELIGIBLE
+                  </CardHeader>
+
+                  <CardContent className="space-y-4 pt-1 text-xs">
+                    <div className="grid grid-cols-2 gap-2 bg-[#F5F5F7]/70 p-3 rounded-2xl border border-black/[0.04]">
+                      <div>
+                        <span className="text-[10px] font-medium text-[#86868B] block">Package (CTC)</span>
+                        <span className="font-semibold text-[#1D1D1F]">{ctcDisplay}</span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] font-medium text-[#86868B] block">Min CPI</span>
+                        <span className="font-semibold text-[#0071E3]">
+                          {drive.minCpi ? `${drive.minCpi} CPI` : "No Cutoff"}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] font-medium text-[#86868B] block">Location</span>
+                        <span className="font-medium text-[#1D1D1F] truncate block">{drive.location || "On-site"}</span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] font-medium text-[#86868B] block">Deadline</span>
+                        <span className="font-medium text-[#1D1D1F] block">{deadlineDisplay}</span>
+                      </div>
+                    </div>
+
+                    <div className="space-y-1">
+                      <span className="text-[10px] font-medium text-[#86868B] uppercase tracking-wider">
+                        Eligible Branches
+                      </span>
+                      <div className="flex flex-wrap gap-1 max-h-16 overflow-y-auto">
+                        {branchesList.length === 0 ? (
+                          <span className="rounded-full bg-blue-50 px-2.5 py-0.5 text-[10px] font-medium text-blue-700 border border-blue-200">
+                            All Branches
                           </span>
                         ) : (
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-rose-50 text-rose-700 border border-rose-200">
-                            INELIGIBLE
-                          </span>
-                        )
-                      ) : null}
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-[#34C759]/10 text-[#28A745] border border-[#34C759]/20">
-                        OPEN
-                      </span>
-                    </div>
-                  </div>
-                </CardHeader>
-
-                <CardContent className="space-y-4 pt-1 text-xs">
-                  <div className="grid grid-cols-2 gap-2 bg-[#F5F5F7]/70 p-3 rounded-2xl border border-black/[0.04]">
-                    <div>
-                      <span className="text-[10px] font-medium text-[#86868B] block">Package (CTC)</span>
-                      <span className="font-semibold text-[#1D1D1F]">{ctcDisplay}</span>
-                    </div>
-                    <div>
-                      <span className="text-[10px] font-medium text-[#86868B] block">Min CPI</span>
-                      <span className="font-semibold text-[#0071E3]">
-                        {drive.minCpi ? `${drive.minCpi} CPI` : "No Cutoff"}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-[10px] font-medium text-[#86868B] block">Location</span>
-                      <span className="font-medium text-[#1D1D1F] truncate block">{drive.location || "On-site"}</span>
-                    </div>
-                    <div>
-                      <span className="text-[10px] font-medium text-[#86868B] block">Deadline</span>
-                      <span className="font-medium text-[#1D1D1F] block">{deadlineDisplay}</span>
-                    </div>
-                  </div>
-
-                  <div className="space-y-1">
-                    <span className="text-[10px] font-medium text-[#86868B] uppercase tracking-wider">
-                      Eligible Branches
-                    </span>
-                    <div className="flex flex-wrap gap-1 max-h-16 overflow-y-auto">
-                      {branchesList.length === 0 ? (
-                        <span className="rounded-full bg-blue-50 px-2.5 py-0.5 text-[10px] font-medium text-blue-700 border border-blue-200">
-                          All Branches
-                        </span>
-                      ) : (
-                        branchesList.map((b: string) => (
-                          <span
-                            key={b}
-                            className="rounded-full bg-[#F5F5F7] px-2.5 py-0.5 text-[10px] font-medium text-[#1D1D1F] border border-black/[0.06]"
-                          >
-                            {b}
-                          </span>
-                        ))
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Ineligibility Reason Callout */}
-                  {drive.eligibility && !drive.eligibility.eligible && drive.eligibility.reasons?.length > 0 && (
-                    <div className="rounded-2xl bg-rose-50/70 border border-rose-200/80 p-3 text-[11px] text-rose-900 space-y-1">
-                      <div className="font-semibold flex items-center gap-1 text-rose-700">
-                        <AlertCircle className="h-3.5 w-3.5 text-rose-600 shrink-0" />
-                        Ineligible Criteria:
-                      </div>
-                      <ul className="list-disc list-inside space-y-0.5 text-rose-800/90 text-[10.5px]">
-                        {drive.eligibility.reasons.slice(0, 2).map((reason, i) => (
-                          <li key={i} className="truncate" title={reason}>
-                            {reason}
-                          </li>
-                        ))}
-                        {drive.eligibility.reasons.length > 2 && (
-                          <li className="text-[10px] text-rose-700 font-medium">
-                            +{drive.eligibility.reasons.length - 2} more (click Details)
-                          </li>
+                          branchesList.map((b: string) => (
+                            <span
+                              key={b}
+                              className="rounded-full bg-[#F5F5F7] px-2.5 py-0.5 text-[10px] font-medium text-[#1D1D1F] border border-black/[0.06]"
+                            >
+                              {b}
+                            </span>
+                          ))
                         )}
-                      </ul>
+                      </div>
                     </div>
-                  )}
 
-                  <div className="flex items-center gap-2 mt-2">
-                    <Button
-                      variant="outline"
-                      onClick={() => setDetailsModalDrive(drive)}
-                      className="flex-1 text-xs font-medium h-9.5 gap-1.5 border-black/[0.1] text-[#1D1D1F] hover:bg-[#F5F5F7]"
-                    >
-                      <FileText className="h-3.5 w-3.5 text-[#86868B]" /> View Details
-                    </Button>
-                    {drive.eligibility && !drive.eligibility.eligible ? (
+                    {drive.eligibility && !drive.eligibility.eligible && drive.eligibility.reasons?.length > 0 && (
+                      <div className="rounded-2xl bg-rose-50/70 border border-rose-200/80 p-3 text-[11px] text-rose-900 space-y-1">
+                        <div className="font-semibold flex items-center gap-1 text-rose-700">
+                          <AlertCircle className="h-3.5 w-3.5 text-rose-600 shrink-0" />
+                          Ineligible Criteria:
+                        </div>
+                        <ul className="list-disc list-inside space-y-0.5 text-rose-800/90 text-[10.5px]">
+                          {drive.eligibility.reasons.slice(0, 2).map((reason, i) => (
+                            <li key={i} className="truncate" title={reason}>
+                              {reason}
+                            </li>
+                          ))}
+                          {drive.eligibility.reasons.length > 2 && (
+                            <li className="text-[10px] text-rose-700 font-medium">
+                              +{drive.eligibility.reasons.length - 2} more (click Details)
+                            </li>
+                          )}
+                        </ul>
+                      </div>
+                    )}
+
+                    <div className="flex items-center gap-2 mt-2">
                       <Button
                         variant="outline"
                         onClick={() => setDetailsModalDrive(drive)}
-                        className="flex-1 text-xs font-medium h-9.5 gap-1 border-rose-200 text-rose-700 bg-rose-50 hover:bg-rose-100"
+                        className="flex-1 text-xs font-medium h-9.5 gap-1.5 border-black/[0.1] text-[#1D1D1F] hover:bg-[#F5F5F7]"
                       >
-                        <AlertCircle className="h-3.5 w-3.5 text-rose-500" /> Ineligible
+                        <FileText className="h-3.5 w-3.5 text-[#86868B]" /> View Details
                       </Button>
-                    ) : isVerified ? (
-                      <Button
-                        variant="primary"
-                        onClick={() => openApplyModal(drive.id)}
-                        className="flex-1 text-xs font-medium h-9.5 gap-1.5 bg-[#0071E3] hover:bg-[#0077ED]"
-                      >
-                        <Send className="h-3.5 w-3.5" /> Apply
-                      </Button>
-                    ) : (
+                      {drive.eligibility && !drive.eligibility.eligible ? (
+                        <Button
+                          variant="outline"
+                          onClick={() => setDetailsModalDrive(drive)}
+                          className="flex-1 text-xs font-medium h-9.5 gap-1 border-rose-200 text-rose-700 bg-rose-50 hover:bg-rose-100"
+                        >
+                          <AlertCircle className="h-3.5 w-3.5 text-rose-500" /> Ineligible
+                        </Button>
+                      ) : isVerified ? (
+                        <Button
+                          variant="primary"
+                          onClick={() => openApplyModal(drive.id)}
+                          className="flex-1 text-xs font-medium h-9.5 gap-1.5 bg-[#0071E3] hover:bg-[#0077ED]"
+                        >
+                          <Send className="h-3.5 w-3.5" /> Apply
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="outline"
+                          onClick={() => openApplyModal(drive.id)}
+                          className="flex-1 text-xs font-medium h-9.5 gap-1 border-black/[0.1] text-amber-800 bg-amber-50 hover:bg-amber-100"
+                        >
+                          <Lock className="h-3.5 w-3.5 text-amber-600" /> Apply
+                        </Button>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        )
+      )}
+
+      {/* TAB 2: APPLIED DRIVES */}
+      {!isLoading && activeTab === "applied" && (
+        filteredApplied.length === 0 ? (
+          <Card className="rounded-3xl border border-black/[0.08] bg-white p-12 text-center space-y-3 shadow-[0_2px_12px_rgba(0,0,0,0.03)]">
+            <Send className="mx-auto h-10 w-10 text-[#A1A1A6]" />
+            <h3 className="text-sm font-semibold text-[#1D1D1F]">
+              {searchQuery ? "No matching applied drives" : "No Applications Submitted Yet"}
+            </h3>
+            <p className="text-xs text-[#86868B] max-w-sm mx-auto">
+              {searchQuery
+                ? "Try clearing your search query."
+                : "You haven't submitted applications to any drives yet. Check the Upcoming Drives tab to apply."}
+            </p>
+            {!searchQuery && (
+              <Button
+                variant="primary"
+                onClick={() => setActiveTab("upcoming")}
+                className="mt-2 text-xs font-semibold gap-1.5"
+              >
+                <Sparkles className="h-3.5 w-3.5" /> Explore Upcoming Drives
+              </Button>
+            )}
+          </Card>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            {filteredApplied.map((app) => {
+              const drive = app.drive;
+              const companyTitle = drive?.company?.name || (drive as any)?.companyName || "Recruiting Company";
+              const jobRole = drive?.role || (drive as any)?.jobRole || "Engineering Role";
+              const ctcDisplay = drive?.ctcMax
+                ? `₹${drive.ctc} - ${drive.ctcMax} LPA`
+                : drive?.ctc
+                ? `₹${drive.ctc} LPA`
+                : (drive as any)?.ctcPackage || "Competitive";
+              const companyLogo = drive?.company?.imageUrl || (drive as any)?.companyLogo;
+
+              const statusColor =
+                app.status === "SELECTED"
+                  ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                  : app.status === "SHORTLISTED"
+                  ? "bg-amber-50 text-amber-700 border-amber-200"
+                  : app.status === "REJECTED"
+                  ? "bg-rose-50 text-rose-700 border-rose-200"
+                  : "bg-blue-50 text-blue-700 border-blue-200";
+
+              return (
+                <Card
+                  key={app.id}
+                  className="rounded-3xl border border-black/[0.08] bg-white shadow-[0_2px_12px_rgba(0,0,0,0.03)] hover:shadow-[0_4px_20px_rgba(0,0,0,0.06)] transition-all flex flex-col justify-between"
+                >
+                  <CardHeader className="pb-3">
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center gap-3">
+                        <CompanyLogo src={companyLogo} name={companyTitle} />
+                        <div className="min-w-0">
+                          <CardTitle className="text-base font-semibold text-[#1D1D1F] truncate">
+                            {companyTitle}
+                          </CardTitle>
+                          <p className="text-xs font-medium text-[#0071E3] truncate">{jobRole}</p>
+                          <span className="text-[10px] text-[#86868B] block mt-0.5">
+                            Applied: {new Date(app.appliedAt || app.createdAt).toLocaleDateString()}
+                          </span>
+                        </div>
+                      </div>
+                      <span className={`px-2.5 py-0.5 rounded-full text-[10.5px] font-bold border ${statusColor}`}>
+                        {app.status === "SELECTED"
+                          ? "🎉 SELECTED"
+                          : app.status === "SHORTLISTED"
+                          ? "⭐ SHORTLISTED"
+                          : app.status}
+                      </span>
+                    </div>
+                  </CardHeader>
+
+                  <CardContent className="space-y-4 pt-1 text-xs">
+                    <div className="grid grid-cols-2 gap-2 bg-[#F5F5F7]/70 p-3 rounded-2xl border border-black/[0.04]">
+                      <div>
+                        <span className="text-[10px] font-medium text-[#86868B] block">Package</span>
+                        <span className="font-semibold text-[#1D1D1F]">{ctcDisplay}</span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] font-medium text-[#86868B] block">Location</span>
+                        <span className="font-medium text-[#1D1D1F] truncate block">
+                          {drive?.location || "On-site"}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Attendance Badge - Defaults to Present if moved past APPLIED */}
+                    <div className="flex items-center justify-between p-2.5 rounded-2xl bg-white border border-black/[0.06] shadow-2xs">
+                      <span className="text-[11px] font-semibold text-[#86868B] flex items-center gap-1.5">
+                        <UserCheck className="h-3.5 w-3.5 text-[#0071E3]" /> Attendance Status:
+                      </span>
+                      {app.isPresent === true ? (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10.5px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                          <Check className="h-3 w-3" /> Present
+                        </span>
+                      ) : app.isPresent === false ? (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10.5px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
+                          <X className="h-3 w-3" /> Absent
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10.5px] font-bold bg-slate-100 text-slate-600 border border-slate-200">
+                          <Clock className="h-3 w-3" /> Pending
+                        </span>
+                      )}
+                    </div>
+
+                    {drive && (
                       <Button
                         variant="outline"
-                        onClick={() => openApplyModal(drive.id)}
-                        className="flex-1 text-xs font-medium h-9.5 gap-1 border-black/[0.1] text-amber-800 bg-amber-50 hover:bg-amber-100"
+                        onClick={() => setDetailsModalDrive(drive)}
+                        className="w-full text-xs font-medium h-9.5 gap-1.5 border-black/[0.1] text-[#1D1D1F] hover:bg-[#F5F5F7]"
                       >
-                        <Lock className="h-3.5 w-3.5 text-amber-600" /> Apply
+                        <FileText className="h-3.5 w-3.5 text-[#86868B]" /> View Drive Details
                       </Button>
                     )}
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        )
+      )}
+
+      {/* TAB 3: PAST DRIVES */}
+      {!isLoading && activeTab === "past" && (
+        filteredPast.length === 0 ? (
+          <Card className="rounded-3xl border border-black/[0.08] bg-white p-12 text-center space-y-3 shadow-[0_2px_12px_rgba(0,0,0,0.03)]">
+            <Clock className="mx-auto h-10 w-10 text-[#A1A1A6]" />
+            <h3 className="text-sm font-semibold text-[#1D1D1F]">
+              {searchQuery ? "No matching past drives" : "No Past Drives Found"}
+            </h3>
+            <p className="text-xs text-[#86868B] max-w-sm mx-auto">
+              {searchQuery
+                ? "Try clearing your search query."
+                : "Completed and closed campus recruitment drives will appear here for archival reference."}
+            </p>
+          </Card>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            {filteredPast.map((drive) => {
+              const companyTitle = drive.company?.name || (drive as any).companyName || "Recruiting Company";
+              const jobTitle = drive.role || (drive as any).jobRole || "Engineering Role";
+              const ctcDisplay = drive.ctcMax
+                ? `₹${drive.ctc} - ${drive.ctcMax} LPA`
+                : drive.ctc
+                ? `₹${drive.ctc} LPA`
+                : (drive as any).ctcPackage || "Competitive";
+              const companyLogo = drive.company?.imageUrl || (drive as any).companyLogo;
+
+              return (
+                <Card
+                  key={drive.id}
+                  className="rounded-3xl border border-black/[0.08] bg-[#F5F5F7]/40 shadow-xs flex flex-col justify-between opacity-90 hover:opacity-100 transition-opacity"
+                >
+                  <CardHeader className="pb-3">
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center gap-3">
+                        <CompanyLogo src={companyLogo} name={companyTitle} />
+                        <div className="min-w-0">
+                          <CardTitle className="text-base font-semibold text-[#1D1D1F] truncate">
+                            {companyTitle}
+                          </CardTitle>
+                          <p className="text-xs font-medium text-[#86868B] truncate">{jobTitle}</p>
+                        </div>
+                      </div>
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-200 text-slate-700 border border-slate-300">
+                        CLOSED
+                      </span>
+                    </div>
+                  </CardHeader>
+
+                  <CardContent className="space-y-4 pt-1 text-xs">
+                    <div className="grid grid-cols-2 gap-2 bg-white p-3 rounded-2xl border border-black/[0.04]">
+                      <div>
+                        <span className="text-[10px] font-medium text-[#86868B] block">Package</span>
+                        <span className="font-semibold text-[#1D1D1F]">{ctcDisplay}</span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] font-medium text-[#86868B] block">Min CPI</span>
+                        <span className="font-semibold text-[#1D1D1F]">
+                          {drive.minCpi ? `${drive.minCpi} CPI` : "None"}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] font-medium text-[#86868B] block">Location</span>
+                        <span className="font-medium text-[#1D1D1F] truncate block">
+                          {drive.location || "On-site"}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] font-medium text-[#86868B] block">Status</span>
+                        <span className="font-medium text-slate-500 block">Drive Concluded</span>
+                      </div>
+                    </div>
+
+                    <Button
+                      variant="outline"
+                      onClick={() => setDetailsModalDrive(drive)}
+                      className="w-full text-xs font-medium h-9.5 gap-1.5 border-black/[0.1] text-[#1D1D1F] hover:bg-white"
+                    >
+                      <FileText className="h-3.5 w-3.5 text-[#86868B]" /> View Archive Details
+                    </Button>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        )
       )}
 
       {/* View Details Modal */}

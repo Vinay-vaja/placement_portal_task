@@ -68,12 +68,27 @@ export const tpoService = {
   // Email notifications
   notifyDriveApplicants: async (
     driveId: string,
-    customMessage?: string
-  ): Promise<ApiResponse<{ count: number; message: string }>> => {
-    return apiClient.post<ApiResponse<{ count: number; message: string }>>(
-      `/tpo/drives/${driveId}/notify`,
-      { customMessage }
-    );
+    payload?: { customMessage?: string; target?: "APPLICANTS" | "ELIGIBLE" }
+  ): Promise<
+    ApiResponse<{
+      sent: number;
+      failed: number;
+      total: number;
+      applicantCount?: number;
+      eligibleCount?: number;
+      message: string;
+    }>
+  > => {
+    return apiClient.post<
+      ApiResponse<{
+        sent: number;
+        failed: number;
+        total: number;
+        applicantCount?: number;
+        eligibleCount?: number;
+        message: string;
+      }>
+    >(`/tpo/drives/${driveId}/notify`, payload || {});
   },
 
   refactorAnnouncement: async (payload: {
