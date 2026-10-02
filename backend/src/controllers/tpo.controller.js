@@ -155,6 +155,12 @@ export const getDashboard = async (req, res, next) => {
     const stats = await dashboardService.getDashboardStats();
     return sendSuccess(res, 200, "Dashboard data retrieved successfully", stats);
   } catch (error) {
+    console.error("[DASHBOARD ERROR]", {
+      message: error?.message,
+      code: error?.code,
+      meta: error?.meta,
+      stack: error?.stack?.substring(0, 500),
+    });
     next(error);
   }
 };

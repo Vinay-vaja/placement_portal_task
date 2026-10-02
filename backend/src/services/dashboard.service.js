@@ -4,76 +4,64 @@ import prisma from "../config/prisma.js";
  * Get comprehensive analytics dashboard data for TPO
  */
 export const getDashboardStats = async () => {
-  // Run all queries in parallel for performance
-  const [
-    totalStudents,
-    verifiedStudents,
-    pendingStudents,
-    rejectedStudents,
-    placedStudents,
-    dismissedStudents,
-    studentsByBranch,
-    studentsByType,
-    totalCompanies,
-    activeDrives,
-    closedDrives,
-    totalApplications,
-    applicationsByStatus,
-    attendanceStats,
-    placedStudentDetails,
-  ] = await Promise.all([
-    // Real Student counts across entire database
+  // Run all queries in parallel — use allSettled so one failure doesn't crash everything
+  const results = await Promise.allSettled([
+    // [0] Total Students
     prisma.student.count(),
+    // [1] Verified
     prisma.student.count({ where: { verificationStatus: "VERIFIED" } }),
+    // [2] Pending
     prisma.student.count({ where: { verificationStatus: "PENDING" } }),
+    // [3] Rejected
     prisma.student.count({ where: { verificationStatus: "REJECTED" } }),
+    // [4] Placed
     prisma.student.count({ where: { isPlaced: true } }),
+    // [5] Dismissed
     prisma.student.count({ where: { isDismissed: true } }),
-
-    // Students by branch (all students)
+    // [6] Students by branch
     prisma.student.groupBy({
       by: ["branch"],
       _count: { id: true },
       where: { branch: { not: null } },
     }),
-
-    // Students by type (all students)
+    // [7] Students by type
     prisma.student.groupBy({
       by: ["studentType"],
       _count: { id: true },
     }),
-
-    // Company & drive counts
+    // [8] Total companies
     prisma.company.count(),
+    // [9] Active drives
     prisma.recruitmentDrive.count({ where: { status: "ACTIVE" } }),
+    // [10] Closed drives
     prisma.recruitmentDrive.count({ where: { status: "CLOSED" } }),
-
-    // Application counts
+    // [11] Total applications
     prisma.application.count(),
+    // [12] Applications by status
     prisma.application.groupBy({
       by: ["status"],
       _count: { id: true },
     }),
-
-    // Attendance stats
+    // [13] Attendance stats
     prisma.application.count({
       where: {
         OR: [
           { attendanceMarked: true },
           { isPresent: { not: null } },
-          { status: { in: ["SHORTLISTED", "INTERVIEWED", "OFFERED", "SELECTED"] } },
+          { status: { in: ["SHORTLISTED", "SELECTED", "REJECTED"] } },
         ],
       },
     }),
-
-    // Placed students with package details
+    // [14] Placed students with package details
     prisma.student.findMany({
       where: { isPlaced: true, currentPackageLpa: { not: null } },
       select: {
         id: true,
         fullName: true,
         branch: true,
+        studentType: true,
         currentPackageLpa: true,
+        user: { select: { email: true } },
         applications: {
           where: { status: "SELECTED" },
           select: {
@@ -91,11 +79,41 @@ export const getDashboardStats = async () => {
     }),
   ]);
 
+  // Helper to safely extract result value with fallback
+  const safeGet = (index, fallback) => {
+    const r = results[index];
+    if (r.status === "fulfilled") return r.value;
+    console.error(`[DASHBOARD] Query [${index}] failed:`, r.reason?.message || r.reason);
+    return fallback;
+  };
+
+  const totalStudents       = safeGet(0, 0);
+  const verifiedStudents    = safeGet(1, 0);
+  const pendingStudents     = safeGet(2, 0);
+  const rejectedStudents    = safeGet(3, 0);
+  const placedStudents      = safeGet(4, 0);
+  const dismissedStudents   = safeGet(5, 0);
+  const studentsByBranch    = safeGet(6, []);
+  const studentsByType      = safeGet(7, []);
+  const totalCompanies      = safeGet(8, 0);
+  const activeDrives        = safeGet(9, 0);
+  const closedDrives        = safeGet(10, 0);
+  const totalApplications   = safeGet(11, 0);
+  const applicationsByStatus = safeGet(12, []);
+  const attendanceStats     = safeGet(13, 0);
+  const placedStudentDetails = safeGet(14, []);
+
+
   // Attendance rate calculation
   const totalAttendanceMarked = attendanceStats;
-  const presentCount = await prisma.application.count({
-    where: { isPresent: true },
-  });
+  let presentCount = 0;
+  try {
+    presentCount = await prisma.application.count({
+      where: { isPresent: true },
+    });
+  } catch (e) {
+    console.error("[DASHBOARD] presentCount query failed:", e?.message);
+  }
   const attendanceRate =
     totalAttendanceMarked > 0
       ? Math.round((presentCount / totalAttendanceMarked) * 10000) / 100
@@ -116,24 +134,49 @@ export const getDashboardStats = async () => {
     median: getMedian(packages),
   };
 
-  // Company-wise package breakdown
+  // Salary Tiers calculated directly from DB packages
+  const salaryTiers = {
+    dream: { count: packages.filter((p) => p >= 10).length },
+    core: { count: packages.filter((p) => p >= 6 && p < 10).length },
+    standard: { count: packages.filter((p) => p < 6).length },
+  };
+
+  // Company-wise package breakdown with student deduplication
   const companyMap = {};
   placedStudentDetails.forEach((student) => {
     student.applications.forEach((app) => {
+      // Null-safe: skip if drive or company data is missing
+      if (!app.drive || !app.drive.company) return;
       const companyName = app.drive.company.name;
       const companyId = app.drive.company.id;
       if (!companyMap[companyName]) {
-        companyMap[companyName] = { companyId, totalPackage: 0, count: 0, students: [] };
+        companyMap[companyName] = { 
+          companyId, 
+          totalPackage: 0, 
+          count: 0, 
+          students: [],
+          seenStudentIds: new Set(),
+        };
       }
+
+      // Prevent duplicate student count for the same company
+      if (companyMap[companyName].seenStudentIds.has(student.id)) return;
+      companyMap[companyName].seenStudentIds.add(student.id);
+
       const offerPackage =
-        app.drive.ctcMax !== null && app.drive.ctcMax !== undefined
+        student.currentPackageLpa ||
+        (app.drive.ctcMax !== null && app.drive.ctcMax !== undefined
           ? (app.drive.ctc + app.drive.ctcMax) / 2
-          : app.drive.ctc;
+          : (app.drive.ctc || 0));
 
       companyMap[companyName].totalPackage += offerPackage;
       companyMap[companyName].count += 1;
       companyMap[companyName].students.push({
+        id: student.id,
         name: student.fullName,
+        email: student.user?.email || null,
+        branch: student.branch,
+        studentType: student.studentType,
         role: app.drive.role,
         package: offerPackage,
       });
@@ -144,11 +187,11 @@ export const getDashboardStats = async () => {
     .map(([company, data]) => ({
       company,
       companyId: data.companyId,
-      avgPackage: Math.round((data.totalPackage / data.count) * 100) / 100,
+      avgPackage: data.count > 0 ? Math.round((data.totalPackage / data.count) * 100) / 100 : 0,
       studentsHired: data.count,
       details: data.students,
     }))
-    .sort((a, b) => b.avgPackage - a.avgPackage);
+    .sort((a, b) => b.studentsHired - a.studentsHired || b.avgPackage - a.avgPackage);
 
   // Branch-wise placement breakdown
   const branchMap = {};
@@ -234,6 +277,7 @@ export const getDashboardStats = async () => {
     },
     packages: {
       ...packageStats,
+      salaryTiers,
       companyWise,
       branchWise,
     },
