@@ -36,6 +36,10 @@ import {
   LayoutDashboard,
 } from "lucide-react";
 import { VisualAnalytics } from "@/components/tpo/visual-analytics";
+import { TPOStudentsTab } from "@/components/tpo/tpo-students-tab";
+import { TPOCompaniesTab } from "@/components/tpo/tpo-companies-tab";
+import { TPODrivesTab } from "@/components/tpo/tpo-drives-tab";
+import { TPOApplicationsTab } from "@/components/tpo/tpo-applications-tab";
 
 export default function TPODashboardPage() {
   const [dashboardView, setDashboardView] = useState<"overview" | "analytics">("overview");
@@ -273,14 +277,14 @@ export default function TPODashboardPage() {
             variant="outline"
             size="sm"
             onClick={() => {
-              const nextView = dashboardView === "analytics" ? "overview" : "analytics";
+              const nextView = activeTab === "analytics" ? "overview" : "analytics";
               setDashboardView(nextView);
               setActiveTab(nextView);
             }}
             className="gap-1.5 text-xs font-medium h-8.5 px-3 border-black/[0.08] bg-white hover:bg-neutral-50 text-[#1D1D1F] transition-colors rounded-lg shadow-none"
           >
             <BarChart3 className="h-3.5 w-3.5 text-[#86868B]" />
-            {dashboardView === "analytics" ? "Overview" : "Analytics"}
+            {activeTab === "analytics" ? "Overview" : "Analytics"}
           </Button>
 
           <Button
@@ -390,13 +394,31 @@ export default function TPODashboardPage() {
         </div>
       )}
 
-      {/* Main Content: Visual Analytics or Standard Overview */}
-      {dashboardView === "analytics" ? (
+      {/* Main Content: Overview, Students, Companies, Drives, Applications, or Visual Analytics */}
+      {activeTab === "analytics" ? (
         <VisualAnalytics
           stats={stats}
           isLoading={isLoading}
           onExportCompanyWise={handleExportCompanyWise}
         />
+      ) : activeTab === "students" ? (
+        <TPOStudentsTab
+          stats={stats}
+          onExportCsv={() => handleExportStudents("csv")}
+          onExportXlsx={() => handleExportStudents("xlsx")}
+          isExportingCsv={isExportingCsv}
+          isExportingXlsx={isExportingXlsx}
+        />
+      ) : activeTab === "companies" ? (
+        <TPOCompaniesTab
+          stats={stats}
+          onExportCompanyWise={handleExportCompanyWise}
+          isExportingCompanyXlsx={isExportingCompanyXlsx}
+        />
+      ) : activeTab === "drives" ? (
+        <TPODrivesTab stats={stats} />
+      ) : activeTab === "applications" ? (
+        <TPOApplicationsTab stats={stats} />
       ) : (
         <>
 
@@ -537,7 +559,7 @@ export default function TPODashboardPage() {
       </Card>
 
       {/* Two-Column Analytics Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
         {/* Company-wise Hiring Ranking */}
         <Card className="rounded-3xl border border-black/[0.08] bg-white shadow-[0_2px_16px_rgba(0,0,0,0.03)] overflow-hidden">
           <CardHeader className="border-b border-black/[0.06] pb-4">
@@ -569,7 +591,7 @@ export default function TPODashboardPage() {
                 No company selections recorded yet for current academic year.
               </div>
             ) : (
-              <div className="divide-y divide-black/[0.06]">
+              <div className="max-h-[460px] overflow-y-auto divide-y divide-black/[0.06]">
                 {companyWise.map((comp, idx) => (
                   <div key={comp.company} className="flex items-center justify-between p-4 hover:bg-[#F5F5F7]/40 transition-colors">
                     <div className="flex items-center gap-3">
@@ -609,15 +631,22 @@ export default function TPODashboardPage() {
         {/* Branch-wise Placement & Student Breakdown */}
         <Card className="rounded-3xl border border-black/[0.08] bg-white shadow-[0_2px_16px_rgba(0,0,0,0.03)] overflow-hidden">
           <CardHeader className="border-b border-black/[0.06] pb-4">
-            <CardTitle className="text-base font-semibold text-[#1D1D1F] flex items-center gap-2">
-              <Users className="h-4 w-4 text-purple-600" /> Departmental Breakdown
-            </CardTitle>
-            <CardDescription className="text-xs text-[#86868B]">
-              Registered candidates and placement statistics across engineering branches
-            </CardDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-base font-semibold text-[#1D1D1F] flex items-center gap-2">
+                  <Users className="h-4 w-4 text-purple-600" /> Departmental Breakdown
+                </CardTitle>
+                <CardDescription className="text-xs text-[#86868B]">
+                  Registered candidates and placement statistics across engineering branches
+                </CardDescription>
+              </div>
+              <Badge className="bg-purple-50 text-purple-600 border border-purple-200 text-[10px] font-medium hidden sm:inline-flex">
+                {ENGINEERING_BRANCHES.length} Branches
+              </Badge>
+            </div>
           </CardHeader>
           <CardContent className="p-0">
-            <div className="max-h-[360px] overflow-y-auto divide-y divide-black/[0.06]">
+            <div className="max-h-[460px] overflow-y-auto divide-y divide-black/[0.06]">
               {ENGINEERING_BRANCHES.map((b) => {
                 const totalInBranch = byBranch[b.code] ?? 0;
                 const branchStat = branchWise.find((item) => item.branch === b.code);
@@ -625,18 +654,30 @@ export default function TPODashboardPage() {
                 const avgBranchPkg = branchStat?.avgPackage ?? 0;
 
                 return (
-                  <div key={b.code} className="flex items-center justify-between p-3.5 hover:bg-[#F5F5F7]/40 transition-colors">
-                    <div className="space-y-0.5">
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold text-xs text-[#1D1D1F]">{b.code}</span>
-                        <span className="text-[11px] text-[#86868B] truncate max-w-[150px] sm:max-w-none">{b.name}</span>
+                  <div key={b.code} className="flex items-center justify-between p-3.5 hover:bg-[#F5F5F7]/40 transition-colors gap-3">
+                    <div className="space-y-0.5 min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+                        <span className="font-semibold text-xs text-[#1D1D1F] shrink-0 px-1.5 py-0.5 rounded bg-black/[0.04]">{b.code}</span>
+                        <span className="text-[11px] text-[#86868B] truncate">{b.name}</span>
                       </div>
-                      <span className="text-[10px] text-[#86868B]">
-                        {totalInBranch} Enrolled • {placedInBranch} Placed
-                      </span>
+                      <div className="flex items-center gap-1.5 text-[10px] text-[#86868B] pt-0.5">
+                        <span>{totalInBranch} Enrolled</span>
+                        <span>•</span>
+                        <span className={placedInBranch > 0 ? "text-[#0071E3] font-medium" : ""}>
+                          {placedInBranch} Placed
+                        </span>
+                        {totalInBranch > 0 && (
+                          <>
+                            <span>•</span>
+                            <span className="text-[10px] text-[#86868B]">
+                              {Math.round((placedInBranch / totalInBranch) * 100)}%
+                            </span>
+                          </>
+                        )}
+                      </div>
                     </div>
 
-                    <div className="text-right">
+                    <div className="text-right shrink-0">
                       {placedInBranch > 0 ? (
                         <div>
                           <span className="text-xs font-semibold text-[#28A745]">
@@ -645,7 +686,7 @@ export default function TPODashboardPage() {
                           <span className="block text-[10px] text-[#86868B]">Avg CTC</span>
                         </div>
                       ) : (
-                        <span className="text-[11px] text-[#86868B] font-medium">In Pipeline</span>
+                        <span className="text-[11px] text-[#86868B] font-medium px-2 py-0.5 rounded-full bg-black/[0.03]">In Pipeline</span>
                       )}
                     </div>
                   </div>
